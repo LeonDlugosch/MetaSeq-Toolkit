@@ -1,7 +1,11 @@
 # MetaSeq-Toolkit
 ## UNDER CONSTRUCTION
 ## MOST OF THE STUFF HERE ARE PLACEHOLDERS
-
+<p align="center">
+  
+  <img src="images/MetaSeq.png">
+  
+</p>
 ## Scope
 1.	Quality trimming and adapter removal of Illumina reads
 2.	Assembly of Metagenomes using metaSPAdes in HPC environments
