@@ -1,5 +1,6 @@
 # MetaSeq-Toolkit
 ## UNDER CONSTRUCTION
+Pipeline currently untested - to be considered not stable/working
 ## MOST OF THE STUFF HERE ARE PLACEHOLDERS
 
 ![MetaSeq_Flowchart](images/MetaSeq.png)
