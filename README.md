@@ -140,5 +140,5 @@ or (if no functional classification is required)
 metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -no_kegg 1 -no_uniref90 1 -no_cayz -eval 0.00001 -t 16
 ```
 
-*requires upload of partitioned amino (< 300 mb) acid sequence data (outDir/06_classification/GHOSTKOALA_splits) to https://www.kegg.jp/ghostkoala/ . Select 'genus_prokaryotes + family_eukaryotes + viruses' database. Only one job is allowed per registered e-mail address. Use multiple to queue up some jobs. This takes about 24h per sample. 
+_*requires upload of partitioned amino (< 300 mb) acid sequence data (outDir/06_classification/GHOSTKOALA_splits) to https://www.kegg.jp/ghostkoala/ . Select 'genus_prokaryotes + family_eukaryotes + viruses' database. Only one job is allowed per registered e-mail address. Use multiple to queue up some jobs. This takes about 24h per sample._ 
 
