@@ -46,7 +46,7 @@ assembly        Assembly using metaSPAdes [-k, -mem]
 predict_genes   Predict genes using Prodigal [-minlen]
 filter_genes    Filter genes according to completeness, length and coverage thresholds [-mincov, -minlen, -complete_genes]
 cluster_genes   Clustering of gene sequences to generate a non-redundant gene catalogue [-cluster_method, -id, -no_cluster]
-classification  Taxonomic and functional classification of sequences [-eval, -prot_id, -no_tax, -no_kegg, -no_cazy, -no_uniref90]
+classify        Taxonomic and functional classification of sequences [-eval, -prot_id, -no_tax, -no_kegg, -no_cazy, -no_uniref90]
 map             bowtie2 mapping of (HQ) reads to nucleotide database [-db]
 bin             binning, evaluation and classification of MAGs
 rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic reads
@@ -82,13 +82,13 @@ post_assembly   starts with assembled contigs and includes predict_genes, filter
 #### Quality trimming
 Although sequences obtained from modern Illumina machines are quite good, some form of quality control is still advised as erroneous sequences and sequences containing adapters may introduce errors in the assembly. Sequences for widely used adapers is provided [here](https://github.com/LeonDlugosch/MetaSeq-Toolkit/blob/main/data/Adapter.fna). For identification of forward and reverse reads samples should be named *Filename_R1.fastq* and *Filename_R2.fastq*
 
-##### Usage: 
+#### Usage: 
 ```
 metaseq qc –i /path/to/paired/illumina/reads –o output/directory –minR 100 –minQ 20 –t 16
 ```
 This will use Trimmomatic to cut remaining adapter sequence fragments from reads and cuts read ends with low quality. Read pairs, in which at least one read is shorter (after quality trimming and adapter removel) than minR are discared. Don’t overdo it here, metaSPADes uses [BaysHammer](https://link.springer.com/article/10.1186/1471-2164-14-S1-S7) read error correction tool prior to assembly to further mitigate sequencing errors. Trimmed reads will be stored in outputDirectory/01_QC/Paired.These need to be transferred to the HPC CARL for assembly.
 
-##### assembly
+#### assembly
 If HPC clusters are required for assembly trimmed reads need to be transferred to the HPC environment. [See here for details](). Using the HPC can improve speed significantly due to parallelization. 
 
 metaSPAdes uses deBrujin-graphs and variable kmer sizes for assembly. Depending on number of samples, sequencing depth and sample heterogeinety, this may take a considerable amount of time. Get a coffe... no, not from your office coffee machine but maybe in Brittany - it's pretty nice all year long :)
@@ -100,7 +100,7 @@ metaseq assembly –i /path/to/paired/illumina/trimmed/reads –o output/directo
 ```
 Results are saved in outDir/02_contigs and outDir/02_1_Quast_500.
 
-##### predict_genes
+#### predict_genes
 Prodigal uses a combination of GC content, ribisomal binding sites, hexamer statistics and Start/Stop codons to dertermine where a gene starts, ends and what the correct frame is. Prodigal is run in meta-mode and generates files for amino acid and nucleotide sequence. Contigs smaller than the -minlen threshold are discarded. 
 
 ##### Usage: 
@@ -108,3 +108,37 @@ Prodigal uses a combination of GC content, ribisomal binding sites, hexamer stat
 metaseq predict_genes –i /path/to/contigs –o output/directory -minlen 210 –t 16
 ```
 Results are saved in outDir/03_filtered_contigs and outDir/04_genes/fna for nucleotides sequences and outDir/04_genes/faa for amino acid sequences.
+
+#### filter_genes
+Gene sequences are filtered according to –minlen and –mincov thresholds and renamed according to sample ID, contig and gene number. Even though this is not entirely necessary for the analysis, it may come in helpful in analysis outside the intentioned functionality (e.g. contig taxonomy, operons…). This modules an [R-skript](https://github.com/LeonDlugosch/MetaSeq-Toolkit/blob/main/scripts/genefilter.R). … and yes, I‘m sure there is a more efficient way to do that, but it’s not excruciatingly slow and it works fine :) 
+##### Usage: 
+```
+metaseq filter_genes -i path/to/04_genes –o output/directory -minlen 210 -mincov 3 –t 16
+```
+Results are saved in outDir/03_filtered_contigs and outDir/04_genes/nuc_filtered for nucleotides sequences and outDir/04_genes/prot_filtered for amino acid sequences.
+
+#### cluster_genes
+Depending on sample number, sequencing depth and sample heterogeneity, metagenomes may contain from hundreds of thousands to some million sequences some of which will be duplicates or at least very close relatives of the same template sequences. However, therein lies a bit of a problem: clustering a few hundred thousand or even a few million sequences may take some time (hours to days), but in really, _really_ large datasets (>20M sequences), computation gets a bit out of hand. Each new sequences will have to be search against an ever growing database to a point where this process soft-cappes the clustering speed. In extreme cases it might be neccessary to skip clustering and use dereplicated sequences (-no_cluster option). 
+
+##### Usage: 
+```
+metaseq cluster_genes -i path/to/04_genes/nuc_filtered –o output/directory -cluster_method usearch -id 95 –t 16
+```
+or
+```
+metaseq cluster_genes -i path/to/04_genes/nuc_filtered –o output/directory -no_cluster 1 -t 16
+```
+Dereplicated or clustered sequences are saved in outDir/05_nr.
+
+#### classify
+Of course, metagenome are most useful if function and taxonomy of sequences are known. Nucleotide based taxonomic sequence classification is done using Kaiju in combination with RefSeq and the ProGenomes databases. Functional classification using the GHOSTKoala online tool* and uniref90 and CAZyme database are optional.
+```
+metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -prot_id 70 -eval 0.00001 -t 16
+```
+or (if no functional classification is required)
+```
+metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -no_kegg 1 -no_uniref90 1 -no_cayz -eval 0.00001 -t 16
+```
+
+*requires upload of partitioned amino (< 300 mb) acid sequence data (outDir/06_classification/GHOSTKOALA_splits) to https://www.kegg.jp/ghostkoala/ . Select 'genus_prokaryotes + family_eukaryotes + viruses' database. Only one job is allowed per registered e-mail address. Use multiple to queue up some jobs. This takes about 24h per sample. 
+
