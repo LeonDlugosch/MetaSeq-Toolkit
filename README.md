@@ -1,7 +1,6 @@
 # MetaSeq-Toolkit
 ![MetaSeq_Flowchart](images/MetaSeq.png)
 
-
 In general this pipeline is intended to be a convenient way to work though large sets of metagenomic or metatranscriptiomic datasets while also retaining high analytical flexibility due to retained intermediate results that might be useful outside of the intended purpose. Downstream analysis such as statistics etc. are not included here.
 
 ## Scope
@@ -37,7 +36,7 @@ In order to work properly, you will need to install dependencies and/or define p
 
 ## metaseq usage
 ```
-metaseq [module] –i [input directory] [options]
+metaseq [module] –i [input directory/file] [options]
 ```
 ### MODULES
 ```
@@ -72,7 +71,7 @@ rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic read
 -no_kegg        [0/1] [classification] if set to 1: do not split amino acid sequences in parts for GHOSTKoala classification. default: 0
 -no_uniref      [0/1] [classification] if set to 1: do not classify sequences using the uniref90 database. default: 0
 -no_tax         [0/1] [classification] if set to 1: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: 0
--prot_id        [INT] [module 5] minimal amino acid sequence identity to CAZyme and UniRef90 databse. default: 70
+-prot_id        [INT] [module 5] minimal amino acid sequence identity to CAZyme and UniRef90 database. default: 70
 -db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately.
 ```
 
