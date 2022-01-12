@@ -78,8 +78,20 @@ post_assembly   starts with assembled contigs and includes predict_genes, filter
 -db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately.
 ```
 
-#### Examples
-#### Quality trimming
+The pipeline or rather certain modules (assembly, cluster_genes, classify, map) may take a considerable amout of time to complete. I advise you to execute this in a _virtual terminal_ using e.g.
+```
+tmux
+```
+### Module usage examples
+#### complete
+This executes modules QC, assembly, predict_genes, filter_genes, cluster_genes, classification and map in sequence and is probably the easiest way to get results quick. For detailed module descriptions see below. 
+
+```
+metaseq complete –i /path/to/paired/illumina_reads –o output/directory –minR 100 –minQ 20 –k 21,33,55,77 –mem 180 -minlen 210 -mincov 3 -cluster_method usearch -id 95 -prot_id 70 -eval 0.00001 –t 16
+```
+When finished, gene abundance tables for each sample, gene classification, gene catalogue (fasta) can be found in 08_results. Binning is not part of the standart analysis and has to be run seperately. 
+
+#### qc
 Although sequences obtained from modern Illumina machines are quite good, some form of quality control is still advised as erroneous sequences and sequences containing adapters may introduce errors in the assembly. Sequences for widely used adapers is provided [here](https://github.com/LeonDlugosch/MetaSeq-Toolkit/blob/main/data/Adapter.fna). For identification of forward and reverse reads samples should be named *Filename_R1.fastq* and *Filename_R2.fastq*
 
 #### Usage: 
@@ -131,7 +143,7 @@ metaseq cluster_genes -i path/to/04_genes/nuc_filtered –o output/directory -no
 Dereplicated or clustered sequences are saved in outDir/05_nr.
 
 #### classify
-Of course, metagenome are most useful if function and taxonomy of sequences are known. Nucleotide based taxonomic sequence classification is done using Kaiju in combination with RefSeq and the ProGenomes databases. Functional classification using the GHOSTKoala online tool* and uniref90 and CAZyme database are optional.
+Of course, metagenome are most useful if function and taxonomy of sequences are known. Nucleotide based taxonomic sequence classification is done using Kaiju in combination with RefSeq and the ProGenomes databases. Functional classification using the GHOSTKoala online tool* and uniref90 and CAZyme database are optional (diamond blastp _--more-sensitive_).
 ```
 metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -prot_id 70 -eval 0.00001 -t 16
 ```
@@ -142,3 +154,21 @@ metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -no_kegg 1
 
 _*requires upload of partitioned amino (< 300 mb) acid sequence data (outDir/06_classification/GHOSTKOALA_splits) to https://www.kegg.jp/ghostkoala/ . Select 'genus_prokaryotes + family_eukaryotes + viruses' database. Only one job is allowed per registered e-mail address. Use multiple to queue up some jobs. This takes about 24h per sample._ 
 
+
+#### map
+To estimate gene abundance, HQ reads are mapped to the gene catalogue using bowtie2 in _--very-sensitive-local_ mode and converted to gene abundance tables using samtools.
+```
+metaseq map -i path/to/trimmed_reads -db pat/to/gene_catalogue –o output/directory -t 16
+```
+or (if no functional classification is required)
+```
+metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -no_kegg 1 -no_uniref90 1 -no_cayz -eval 0.00001 -t 16
+```
+
+#### bin
+This module uses metabat2 to create metagenomic bins of representative organisms based on contig coverage and g+c content (... and a few more things. [See here](https://peerj.com/articles/1165/)). Resulting bins are evaluated using CheckM, 16S sequences are extracted using usearch _-search_16s_ and classified with gtbd-tk _-classify_wf_.
+
+```
+metaseq bin -i path/to/trimmed_reads -c path/to/corresponding/contigs -o output/directory -t 16
+```
+Resulting bins, taxonomic classification and bin-statistics are saved in output/directory/11_bins and output/directory/12_bin_stats
