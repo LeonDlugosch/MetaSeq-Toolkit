@@ -40,15 +40,15 @@ In order to work properly, you will need to install dependencies and/or define p
 metaseq [module] –i [input directory] [options]
 
 ### MODULES
-QC			        Quality and adapter clipping of illumine reads using trimmomatic [-minQ, -minR]
-assembly		    Assembly using metaSPAdes [-k, -mem]
-predict_genes		Predict genes using Prodigal
-filter_genes	 	Filter genes according to completeness, length and coverage thresholds [-mincov, -minlen, -complete_genes]
-cluster_genes		Clustering of gene sequences to generate a non-redundant gene catalogue [-cluster_method, -id, -no_cluster]
-classification	Taxonomic and functional classification of sequences [-eval, -prot_id, -no_tax, -no_kegg, -no_cazy, -no_uniref90]
-map	            bowtie2 mapping of (HQ) reads to nucleotide database [-db]
-bin	            binning, evaluation and classification of MAGs
-rna_depletion	  in silico depletion of rRNA reads from (meta)transcriptomic reads
+QC              Quality and adapter clipping of illumine reads using trimmomatic [-minQ, -minR]
+assembly        Assembly using metaSPAdes [-k, -mem]
+predict_genes   Predict genes using Prodigal
+filter_genes    Filter genes according to completeness, length and coverage thresholds [-mincov, -minlen, -complete_genes]
+cluster_genes   Clustering of gene sequences to generate a non-redundant gene catalogue [-cluster_method, -id, -no_cluster]
+classification  Taxonomic and functional classification of sequences [-eval, -prot_id, -no_tax, -no_kegg, -no_cazy, -no_uniref90]
+map             bowtie2 mapping of (HQ) reads to nucleotide database [-db]
+bin             binning, evaluation and classification of MAGs
+rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic reads
 
 ###OPTIONS
 -i 		          [PATH] directory containing input files. Varies with module.
