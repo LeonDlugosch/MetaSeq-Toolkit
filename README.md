@@ -21,19 +21,19 @@ Since the assembly is a very memory intensive process, it may be required to run
 Setup (… if used outside CvO University)
 In order to work properly, you will need to install dependencies and/or define paths to executables in your environment. When working on the ICBM server Rhea everything should be correct. If not, you will need to install the following third-party software:
 
-•	[Trimmomatic](http://www.usadellab.org/cms/?page=trimmomatic)
-•	[Usearch (64bit)](https://www.drive5.com/usearch/)
-•	[Kaiju](https://kaiju.binf.ku.dk/)
-•	[Diamond](https://github.com/bbuchfink/diamond)
-•	[Cdhit](https://github.com/weizhongli/cdhit)
-•	[Metabat2](https://kbase.us/applist/apps/metabat/run_metabat/release)
-•	[Samtools](http://www.htslib.org/)
-•	[Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
-•	[(Meta)SPAdes](https://cab.spbu.ru/software/meta-spades/)
-•	[Prodigal](https://github.com/hyattpd/Prodigal)
-•	[Tab2fasta](https://github.com/shenwei356/bio_scripts/blob/master/sequence/tab2fasta)
-•	[Removesmalls](https://github.com/burgsdorf/removesmalls/blob/master/removesmalls.pl)
-•	[Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
+- [Trimmomatic](http://www.usadellab.org/cms/?page=trimmomatic)
+- [Usearch (64bit)](https://www.drive5.com/usearch/)
+- [Kaiju](https://kaiju.binf.ku.dk/)
+- [Diamond](https://github.com/bbuchfink/diamond)
+- [Cdhit](https://github.com/weizhongli/cdhit)
+- [Metabat2](https://kbase.us/applist/apps/metabat/run_metabat/release)
+- [Samtools](http://www.htslib.org/)
+- [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
+- [(Meta)SPAdes](https://cab.spbu.ru/software/meta-spades/)
+- [Prodigal](https://github.com/hyattpd/Prodigal)
+- [Tab2fasta](https://github.com/shenwei356/bio_scripts/blob/master/sequence/tab2fasta)
+- [Removesmalls](https://github.com/burgsdorf/removesmalls/blob/master/removesmalls.pl)
+- [Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
 
 metaseq usage: 
 metaseq [module] –i [input directory] [options]
