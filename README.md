@@ -4,7 +4,7 @@
 
 In general this pipeline is intended to be a convenient way to work though large sets of metagenomic or metatranscriptiomic datasets while also retaining high analytical flexibility due to retained intermediate results that might be useful outside of the intended purpose. Downstream analysis such as statistics etc. are not included here.
 
-##Scope
+## Scope
 1.	Quality trimming and adapter removal of Illumina reads
 2.	Assembly of Metagenomes using metaSPAdes
   2.1.	Metaquast evaluation of assembly
