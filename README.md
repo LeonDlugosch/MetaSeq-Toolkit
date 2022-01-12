@@ -10,7 +10,7 @@ In general this pipeline is intended to be a convenient way to work though large
   2.1.	Metaquast evaluation of assembly
 3.	Quality filtering of assembled contigs & predicted genes
 4.	Generation of a non-redundant gene catalogue
-5.	Classification of genes 
+5.	Classification of genes
   5.1.	Taxonomy (Kaiju): RefSeq, Progenomes
   5.2.	Function: KEGG (GHOSTKOLA), CAZYmes, Uniref90
 6.	MAG binning (Metabat2)
