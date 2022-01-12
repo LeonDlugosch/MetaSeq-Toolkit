@@ -25,9 +25,9 @@ In order to work properly, you will need to install dependencies and/or define p
 - [Usearch (64bit)](https://www.drive5.com/usearch/)
 - [Kaiju](https://kaiju.binf.ku.dk/)
 - [Diamond](https://github.com/bbuchfink/diamond)
-- [Cdhit](https://github.com/weizhongli/cdhit)
+- [cdhit](https://github.com/weizhongli/cdhit)
 - [Metabat2](https://kbase.us/applist/apps/metabat/run_metabat/release)
-- [Samtools](http://www.htslib.org/)
+- [samtools](http://www.htslib.org/)
 - [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
 - [(Meta)SPAdes](https://cab.spbu.ru/software/meta-spades/)
 - [Prodigal](https://github.com/hyattpd/Prodigal)
@@ -35,7 +35,8 @@ In order to work properly, you will need to install dependencies and/or define p
 - [Removesmalls](https://github.com/burgsdorf/removesmalls/blob/master/removesmalls.pl)
 - [Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
 
-metaseq usage: 
+## metaseq usage
+```
 metaseq [module] –i [input directory] [options]
 MODULES
 QC			Quality and adapter clipping of illumine reads using trimmomatic [-minQ, 			-minR]
@@ -70,5 +71,5 @@ default: 20
 -no_tax	[0/1] [classification] if set to 1: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: 0
 -prot_id	[INT] [module 5] minimal amino acid sequence identity to CAZyme and UniRef90 databse. default: 70
 -db	[PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately.
-
+```
 
