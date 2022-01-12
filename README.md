@@ -33,6 +33,7 @@ In order to work properly, you will need to install dependencies and/or define p
 - [Tab2fasta](https://github.com/shenwei356/bio_scripts/blob/master/sequence/tab2fasta)
 - [Removesmalls](https://github.com/burgsdorf/removesmalls/blob/master/removesmalls.pl)
 - [Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
+- [metaquast](http://bioinf.spbau.ru/metaquast)
 
 ## metaseq usage
 ```
@@ -40,15 +41,17 @@ metaseq [module] –i [input directory/file] [options]
 ```
 ### MODULES
 ```
-QC              Quality and adapter clipping of illumine reads using trimmomatic [-minQ, -minR]
+qc              Quality and adapter clipping of illumina reads using trimmomatic [-minQ, -minR]
 assembly        Assembly using metaSPAdes [-k, -mem]
-predict_genes   Predict genes using Prodigal
+predict_genes   Predict genes using Prodigal [-minlen]
 filter_genes    Filter genes according to completeness, length and coverage thresholds [-mincov, -minlen, -complete_genes]
 cluster_genes   Clustering of gene sequences to generate a non-redundant gene catalogue [-cluster_method, -id, -no_cluster]
 classification  Taxonomic and functional classification of sequences [-eval, -prot_id, -no_tax, -no_kegg, -no_cazy, -no_uniref90]
 map             bowtie2 mapping of (HQ) reads to nucleotide database [-db]
 bin             binning, evaluation and classification of MAGs
 rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic reads
+complete        starts with illimina reads and includes QC, assembly, predict_genes, filter_genes, cluster_genes, classification and map
+post_assembly   starts with assembled contigs and includes predict_genes, filter_genes, cluster_genes, classification and map
 ```
 
 ### OPTIONS
@@ -58,7 +61,7 @@ rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic read
 -t              [INT] Number of available threads; default: 16
 -minR           [INT] [QC] Minimal read length (R1 & R2 read) after adapter and quality clipping. Shorter reads will be discarded; default = 100
 -minQ           [INT] [QC] Minimal average Q-score within a 4bp sliding window. default: 20
--mem            [INT] [assembly] memory available for metaSPAdes assembly. Default 120GB
+-mem            [INT] [assembly] memory available for metaSPAdes assembly. Default 180GB
 -k              [INT,INT,INT…] [assembly] k-mer size for assembly, default: 21,33,55
 -complete_genes [0/1] 
 -minlen         [INT] [filter_genes] Minimal length of genes in potential amino acid sequence. default: 210 (=70 amino acids)
@@ -76,4 +79,32 @@ rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic read
 ```
 
 #### Examples
+#### Quality trimming
+Although sequences obtained from modern Illumina machines are quite good, some form of quality control is still advised as erroneous sequences and sequences containing adapters may introduce errors in the assembly. Sequences for widely used adapers is provided [here](https://github.com/LeonDlugosch/MetaSeq-Toolkit/blob/main/data/Adapter.fna). For identification of forward and reverse reads samples should be named *Filename_R1.fastq* and *Filename_R2.fastq*
 
+##### Usage: 
+```
+metaseq qc –i /path/to/paired/illumina/reads –o output/directory –minR 100 –minQ 20 –t 16
+```
+This will use Trimmomatic to cut remaining adapter sequence fragments from reads and cuts read ends with low quality. Read pairs, in which at least one read is shorter (after quality trimming and adapter removel) than minR are discared. Don’t overdo it here, metaSPADes uses [BaysHammer](https://link.springer.com/article/10.1186/1471-2164-14-S1-S7) read error correction tool prior to assembly to further mitigate sequencing errors. Trimmed reads will be stored in outputDirectory/01_QC/Paired.These need to be transferred to the HPC CARL for assembly.
+
+##### assembly
+If HPC clusters are required for assembly trimmed reads need to be transferred to the HPC environment. [See here for details](). Using the HPC can improve speed significantly due to parallelization. 
+
+metaSPAdes uses deBrujin-graphs and variable kmer sizes for assembly. Depending on number of samples, sequencing depth and sample heterogeinety, this may take a considerable amount of time. Get a coffe... no, not from your office coffee machine but maybe in Brittany - it's pretty nice all year long :)
+In addition metaquast statistics are calculated for each assembly.  
+
+##### Usage: 
+```
+metaseq assembly –i /path/to/paired/illumina/trimmed/reads –o output/directory –k 21,33,55,77 –mem 180 –t 16
+```
+Results are saved in outDir/02_contigs and outDir/02_1_Quast_500.
+
+##### predict_genes
+Prodigal uses a combination of GC content, ribisomal binding sites, hexamer statistics and Start/Stop codons to dertermine where a gene starts, ends and what the correct frame is. Prodigal is run in meta-mode and generates files for amino acid and nucleotide sequence. Contigs smaller than the -minlen threshold are discarded. 
+
+##### Usage: 
+```
+metaseq predict_genes –i /path/to/contigs –o output/directory -minlen 210 –t 16
+```
+Results are saved in outDir/03_filtered_contigs and outDir/04_genes/fna for nucleotides sequences and outDir/04_genes/faa for amino acid sequences.
