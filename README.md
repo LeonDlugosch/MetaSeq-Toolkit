@@ -34,7 +34,7 @@ In order to work properly, you will need to install dependencies and/or define p
 - [Tab2fasta](https://github.com/shenwei356/bio_scripts/blob/master/sequence/tab2fasta)
 - [Removesmalls](https://github.com/burgsdorf/removesmalls/blob/master/removesmalls.pl)
 - [Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
-- [metaquast](http://bioinf.spbau.ru/metaquast)
+- [metaquast](http://quast.sourceforge.net/metaquast)
 
 ## metaseq usage
 ```
