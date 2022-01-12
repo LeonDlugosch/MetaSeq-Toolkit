@@ -75,3 +75,5 @@ rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic read
 -db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately.
 ```
 
+#### Examples
+
