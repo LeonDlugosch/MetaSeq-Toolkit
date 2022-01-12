@@ -70,12 +70,12 @@ post_assembly   starts with assembled contigs and includes predict_genes, filter
 -cluster_method [usearch/cdhit] [cluster_genes] Cluster method used for clustering of nucleotide sequences. default: usearch
 -id             [INT] [cluster_genes] Threshold for nucleotide identity (%) clustering.  Ignored if –no_cluster 1. default: 95
 -no_cluster     [0/1] [cluster_genes] if set to 1: do not cluster genes. default: 0
--eval           [FLOAT] [classification] E-value threshold for classification default: 0.00001
--no_cazy        [0/1] [classification] if set to 1: do not classify sequences using the CAZyme database. default: 0
--no_kegg        [0/1] [classification] if set to 1: do not split amino acid sequences in parts for GHOSTKoala classification. default: 0
--no_uniref      [0/1] [classification] if set to 1: do not classify sequences using the uniref90 database. default: 0
--no_tax         [0/1] [classification] if set to 1: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: 0
--prot_id        [INT] [module 5] minimal amino acid sequence identity to CAZyme and UniRef90 database. default: 70
+-eval           [FLOAT] [classify] E-value threshold for classification default: 0.00001
+-no_cazy        [0/1] [classify] if set to 1: do not classify sequences using the CAZyme database. default: 0
+-no_kegg        [0/1] [classify] if set to 1: do not split amino acid sequences in parts for GHOSTKoala classification. default: 0
+-no_uniref      [0/1] [classify] if set to 1: do not classify sequences using the uniref90 database. default: 0
+-no_tax         [0/1] [classify] if set to 1: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: 0
+-prot_id        [INT] [classify] minimal amino acid sequence identity to CAZyme and UniRef90 database. default: 70
 -db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately.
 ```
 
