@@ -24,7 +24,7 @@ In order to work properly, you will need to install dependencies and/or define p
 •	[Trimmomatic](http://www.usadellab.org/cms/?page=trimmomatic)
 •	[Usearch (64bit)](https://www.drive5.com/usearch/)
 •	[Kaiju](https://kaiju.binf.ku.dk/)
-•	[Diamond])https://github.com/bbuchfink/diamond)
+•	[Diamond](https://github.com/bbuchfink/diamond)
 •	[Cdhit](https://github.com/weizhongli/cdhit)
 •	[Metabat2](https://kbase.us/applist/apps/metabat/run_metabat/release)
 •	[Samtools](http://www.htslib.org/)
