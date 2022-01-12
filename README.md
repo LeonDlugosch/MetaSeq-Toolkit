@@ -1,4 +1,5 @@
 # MetaSeq-Toolkit
+# work in progress
 ![MetaSeq_Flowchart](images/MetaSeq.png)
 
 In general this pipeline is intended to be a convenient way to work though large sets of metagenomic or metatranscriptiomic datasets while also retaining high analytical flexibility due to retained intermediate results that might be useful outside of the intended purpose. Downstream analysis such as statistics etc. are not included here.
