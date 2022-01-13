@@ -43,7 +43,7 @@ metaseq [module] –i [input directory/file] [options]
 ### MODULES
 ```
 qc              Quality and adapter clipping of illumina reads using trimmomatic [-minQ, -minR]
-assembly        Assembly using metaSPAdes [-k, -mem]
+assembly        Assembly using metaSPAdes [-k, -mem, -metaviral]
 predict_genes   Predict genes using Prodigal [-minlen]
 filter_genes    Filter genes according to completeness, length and coverage thresholds [-mincov, -minlen, -complete_genes]
 cluster_genes   Clustering of gene sequences to generate a non-redundant gene catalogue [-cluster_method, -id, -no_cluster]
@@ -62,7 +62,8 @@ post_assembly   starts with assembled contigs and includes predict_genes, filter
 -t              [INT] Number of available threads; default: 16
 -minR           [INT] [QC] Minimal read length (R1 & R2 read) after adapter and quality clipping. Shorter reads will be discarded; default = 100
 -minQ           [INT] [QC] Minimal average Q-score within a 4bp sliding window. default: 20
--mem            [INT] [assembly] memory available for metaSPAdes assembly. Default 180GB
+-mem            [INT] [assembly] memory available for metaSPAdes assembly. default: 180GB
+-metaviral      [0/1] [assembly] assembly of viral contigs. default: 0
 -k              [INT,INT,INT…] [assembly] k-mer size for assembly, default: 21,33,55
 -complete_genes [0/1] 
 -minlen         [INT] [filter_genes] Minimal length of genes in potential amino acid sequence. default: 210 (=70 amino acids)
