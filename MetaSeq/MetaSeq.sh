@@ -24,11 +24,13 @@ jgi_summarize=/bioinf/home/leon.dlugosch/Resources/metabat/jgi_summarize_bam_con
 metabat2=/nfs/data/kila0393/metabat/metabat2
 
 adapter=/bioinf/home/leon.dlugosch/Resources/Adapter/Adapter_new.fna
+adapter_tab=/bioinf/home/leon.dlugosch/Resources/Adapter/Adapter_new_tab.fna
 ################################################################################################################################
 #                                                    Analysis defaults                                                         #
 ################################################################################################################################
 mode=0
 
+metaviral=0						# SPAdes virus assembly
 complete_genes=0				# should only complete genes (Prodigal) be used for analysis?
 cluster_method=usearch 			# Clustering algorythm. can be "usearch" or "cdhit"
 no_cazy=0						# Skip cazyme calssification
@@ -39,13 +41,14 @@ id=95							# identity threshold for clustering
 no_tax=0						# Skip taxonomic calssification using kaiju and RefSeq/ProGenomes databases
 prot_id=70						# Identity threshold for diamond protein similatity searches (uniref90 and cazyme)
 
-threads=20  					# threads used for computation                                                  
+threads=16						# threads used for computation                                                  
 mem=120							# memory for SPAdes assembly in GB
 minR=100						# minimal read length in quality control of raw illumina reads
+minQ=20							# minimal read quality over 4bp sliding window
 minlen=210						# minimal contig and gene length
 mincov=3						# minimal average coverage of contigs
-k=11,21,33,55					# kmer size for assembly
-
+k=21,33,55						# kmer size for assembly
+eval=0.00001
 db=0							# database for mapping of reads and read abundance tables
 rDir=0							# input directory
 oDir=.							# output directory
@@ -70,9 +73,24 @@ while : ; do
 		threads=$1
 		shift
 		;;
+	-c)
+		shift
+		cDir=$1
+		shift
+		;;
 	-minR)
 		shift
 		minR=$1
+		shift
+		;;
+	-minQ)
+		shift
+		minQ=$1
+		shift
+		;;
+	-metaviral)
+		shift
+		metaviral=$1
 		shift
 		;;
 	-cluster_method)
@@ -113,6 +131,11 @@ while : ; do
 	-prot_id)
 		shift
 		prot_id=$1
+		shift
+		;;
+	-eval)
+		shift
+		eval=$1
 		shift
 		;;
 	-complete_genes)
@@ -163,6 +186,7 @@ minAA=$(($minlen/3))
 
 if [[ "$mode" == 0 ]]; then
 	echo "Error: no mode defined"
+
 	exit
 fi
 
@@ -175,7 +199,7 @@ fi
 if [[ "$oDir" == . ]]; then
 	echo "No output directory selected."
 	echo "Output will be written in your current working directory."
-	exit
+	sleep 15s
 fi
 
 rename "s/-//g" $inDir/*.fastq* ### deletes "-" from strings, because they make problems
@@ -188,25 +212,30 @@ if [[ "${oDir: -1}" == "/" ]]; then
 fi
 
 ###################################################################################################################################
-# MODE: gzip_d & gzip_c 												                                                          #
+# MODE: qa														                                                           		  #
 ###################################################################################################################################
-if [[ "$mode" == "gzip_d" ]]; then
-	( cd $rDir && gzip -d *.gz )
+if [[ "$mode" == "qa"  || "$mode" == "complete" ]]; then
+	mkdir -p $oDir/tmp
+	mkdir -p $oDir/00_fastqc
+	echo "$in"
+	( cd $rDir/ && ls *.f* ) > $oDir/tmp/qa_files.txt
+	for s in $(cat $oDir/tmp/qa_files.txt); do
+		fastqc $rDir/$s -t $threads -a $adapter_tab
+	done
+	mv $rDir/*.html 00_fastqc
+	rm $rDir/*.zip
+	rm -rf $oDir/tmp
 fi
-
-if [[ "$mode" == "gzip_c" ]]; then
-	( cd $rDir && gzip *.f* )
-fi
 ###################################################################################################################################
-# MODE: QC														                                                           		  #
+# MODE: qc														                                                           		  #
 ###################################################################################################################################
-if [[ "$mode" == "QC"  || "$mode" == "complete" ]]; then
+if [[ "$mode" == "qc"  || "$mode" == "complete" ]]; then
 
 	mkdir -p $oDir/01_QC/Paired
 	mkdir -p $oDir/01_QC/Unpaired
 	mkdir -p $oDir/tmp
 
-	( cd $inDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/trim_files.txt
+	( cd $rDir && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/trim_files.txt
 
 	for s in $(cat $oDir/tmp/trim_files.txt); do
 		java -jar $trimmo PE \
@@ -219,7 +248,7 @@ if [[ "$mode" == "QC"  || "$mode" == "complete" ]]; then
 		$oDir/01_QC/Paired/${s}_R2.fastq \
 		$oDir/01_QC/Unpaired/${s}_SE_R2.fastq \
 		ILLUMINACLIP:$adapter:2:30:10:2:true \
-		SLIDINGWINDOW:4:20 \
+		SLIDINGWINDOW:4:$minQ \
 		LEADING:20 \
 		MINLEN:$minR 
 	done
@@ -260,35 +289,62 @@ fi
 		mkdir -p $oDir/02_1_Quast_500/${s}
 		metaquast.py -t $threads --max-ref-number 0 -m 500 -o $oDir/02_1_Quast_m${m}/${s} $oDir/02_contigs/${s}
 	done
+
 	rm -rf $oDir/tmp/SPAdes
+	
+	if [[ "$metaviral" == "1" ]]; then
+		rDir=$oDir/01_QC/Paired
+	
+		mkdir -p $oDir/02_viral_contigs
+		mkdir -p $oDir/tmp/SPAdes
+		( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/Files.txt
+		for s in $(cat Files_${n}.txt); do
+	
+			if [ -d $oDir/tmp/SPAdes ]; then
+				rm -rf $oDir/tmp/SPAdes
+				mkdir -p $oDir/tmp/SPAdes
+			fi
+	
+			spades.py -1 $rDir/${s}_R1.fastq \
+			-2 $rDir/${s}_R2.fastq \
+			--metaviral \
+			--memory $mem \
+			-k $k \
+			-o $oDir/tmp/SPAdes \
+			-t $threads
+	
+			mv $oDir/tmp/SPAdes/contigs.fasta $oDir/02_viral_contigs/${s}_viral_contigs.fasta
+		done
+		rm -rf $oDir/tmp/SPAdes
+	fi
 fi
 
 ###################################################################################################################################
-# MODE: predict														                                                           		  #
+# MODE: predict_genes													                                                           		  #
 ###################################################################################################################################
-if [[ "$mode" == "predict" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+if [[ "$mode" == "predict_genes" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 	if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
 		rDir=$oDir/02_contigs
 	fi
 	mkdir -p $oDir/tmp/faa
 	mkdir -p $oDir/tmp/fna
-	mkdir -p $oDir/03_Filtered_Contigs
+	mkdir -p $oDir/03_filtered_contigs
 	
 	( cd $rDir && ls *.fasta ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/RemoveSmalls.txt
 	echo "Removing Contigs smaller than "$minlen"bp..."
 	for s in $(cat $oDir/tmp/RemoveSmalls.txt); do
 		echo ${s}"..."
-		perl $rm_smalls $minlen $rDir/${s}_contigs.fasta > $oDir/03_Filtered_Contigs/${s}_f.fasta
+		perl $rm_smalls $minlen $rDir/${s}_contigs.fasta > $oDir/03_filtered_contigs/${s}_f.fasta
 	done
-	
-	 mkdir -p $oDir/04_Genes/fna 	# Nucleotide sequences
-	 mkdir -p $oDir/04_Genes/faa 	# Proteins sequneces
 
-	 ( cd $oDir/03_Filtered_Contigs && ls *.fasta ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/Prodigal_Files.txt
+	 mkdir -p $oDir/04_genes/fna 	# Nucleotide sequences
+	 mkdir -p $oDir/04_genes/faa 	# Proteins sequneces
+
+	 ( cd $oDir/03_filtered_contigs && ls *.fasta ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/Prodigal_Files.txt
 	 for s in $(cat $oDir/tmp/Prodigal_Files.txt); do
 	 	(FILE=$s
 	 		echo $FILE" ..." 
-	 		prodigal  -p meta -q -i $oDir/03_Filtered_Contigs/${FILE}_f.fasta -d $oDir/tmp/fna/${FILE}_genes.fna -a $oDir/tmp/faa/${s}_aas.faa
+	 		prodigal  -p meta -q -i $oDir/03_filtered_contigs/${FILE}_f.fasta -d $oDir/tmp/fna/${FILE}_genes.fna -a $oDir/tmp/faa/${s}_aas.faa
 	 		) &
 
 	 	if [[ $(jobs -r -p | wc -l) -gt $threads ]]; then
@@ -306,7 +362,7 @@ if [[ "$mode" == "predict" || "$mode" == "postassembly" || "$mode" == "complete"
 	fi
 
 ###################################################################################################################################
-# MODE: filter genes														                                               		  #
+# MODE: filter_genes														                                               		  #
 ###################################################################################################################################
 
 if [[ "$mode" == "filter_genes" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
@@ -379,7 +435,7 @@ if [[ "$mode" == "filter_genes" || "$mode" == "postassembly" || "$mode" == "comp
 fi
 
 ###################################################################################################################################
-# MODE: Cluster_genes														                                               		  #
+# MODE: cluster_genes														                                               		  #
 ###################################################################################################################################
 if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 		if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
@@ -394,31 +450,42 @@ if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "com
 	-threads $threads \
 	-fastaout $oDir/04_genes/all_genes_nuc_derep.fna
 	
+	usearch -sortbysize $oDir/04_genes/all_genes_nuc_derep.fna \
+	-fastaout $oDir/04_genes/all_genes_nuc_derep_s.fna \
+	-minsize 1
+
+	rm $oDir/04_genes/all_genes_nuc_derep.fna
+
 	if [[ "$no_cluster" == "0" ]]; then
 		mkdir -p 05_nr/
 		if [[ "$cluster_method" == "usearch" ]]; then
-			usearch -cluster_fast $oDir/05_genes/all_genes_nuc_derep.fna \
+			usearch -cluster_fast $oDir/05_genes/all_genes_nuc_derep_s.fna \
 			-id 0.$id \
-			-centroids $oDir/06_nr/Genes_nr${id}.fna
-			gzip $oDir/04_genes/all_genes_nuc_derep.fna
+			-centroids $oDir/05_nr/Genes_nr${id}.fna
+			gzip $oDir/04_genes/all_genes_nuc_derep_s.fna
 		fi
 		
 		if [[ "$cluster_method" == "cdhit" ]]; then
-			cdhit -i $oDir/05_genes/all_genes_nuc_derep.fna \
+			cdhit -i $oDir/05_genes/all_genes_nuc_derep_s.fna \
 			-o $oDir/05_nr/Genes_nr${id}.fna \
 			-c 0.$id \
 			-T $threads \
 			-M 0
-
-			gzip $oDir/04_genes/all_genes_nuc_derep.fna
+			gzip $oDir/04_genes/all_genes_nuc_derep_s.fna
 		fi
 	fi
+	
+	if [[ "$no_cluster" == "1" ]]; then
+		mkdir -p 05_nr/
+		mv $oDir/04_genes/all_genes_nuc_derep.fna 05_nr/
+	fi
+	
 fi
 
 ###################################################################################################################################
-# MODE: classification													                                                 		  #
+# MODE: classify													                                                 		      #
 ###################################################################################################################################
-if [[ "$mode" == "classification" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+if [[ "$mode" == "classify" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 		if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
 			if [[ "$no_cluster" == 1 ]]; then
 				rdir=$oDir/05_genes/all_genes_nuc_derep.fna
@@ -431,11 +498,11 @@ if [[ "$mode" == "classification" || "$mode" == "postassembly" || "$mode" == "co
 	mkdir $oDir/06_classification/Kaiju_taxonomy/ProGenomes
 	if [[ "$no_tax" == "0" ]]; then
 		echo "Starting Kaiju: RefSeq NR"
-		kaiju -t $Kaiju_RefSeq_Nodes -f $Kaiju_RefSeq -z $threads -a greedy -e 5 -E 0.00001 -i $rDir -o $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_Taxonomy.txt
+		kaiju -t $Kaiju_RefSeq_Nodes -f $Kaiju_RefSeq -z $threads -a greedy -e 5 -E $eval -i $rDir -o $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_Taxonomy.txt
 		kaiju-addTaxonNames -t $Kaiju_RefSeq_Nodes -n $Kaiju_RefSeq_Names -i $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_Taxonomy.txt -o $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_names.txt -r superkingdom,phylum,class,order,family,genus,species -u
 		
 		echo "Starting Kaiju: ProGenomes"
-		kaiju -t $Kaiju_Progenomes_Nodes -f $Kaiju_Progenomes -z $threads -a greedy -e 5 -E 0.00001 -i $rDir -o $oDir/06_classification/Kaiju_taxonomy/ProGenomes/ProGenomes_Taxonomy.txt
+		kaiju -t $Kaiju_Progenomes_Nodes -f $Kaiju_Progenomes -z $threads -a greedy -e 5 -E $eval -i $rDir -o $oDir/06_classification/Kaiju_taxonomy/ProGenomes/ProGenomes_Taxonomy.txt
 		kaiju-addTaxonNames -t $Kaiju_Progenomes_Nodes -n $Kaiju_Progenomes_Names -i $oDir/06_classification/Kaiju_taxonomy/ProGenomes/ProGenomes_Taxonomy.txt -o $oDir/06_classification/Kaiju_taxonomy/ProGenomes/Progenomes_names.txt -r superkingdom,phylum,class,order,family,genus,species -u
 	fi
 	
@@ -445,25 +512,25 @@ if [[ "$mode" == "classification" || "$mode" == "postassembly" || "$mode" == "co
 	
 	if [[ "$no_cazy" == "0" ]]; then
 		mkdir $oDir/06_classification/CAZy/
-		diamond blastp --more-sensitive -p $threads --id 70 -e 0.0000000001 -k 1 -d /bioinf/home/leon.dlugosch/Resources/DiamondDB_CAZy/diamond_cazy_db.dmnd -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/CAZy/CAZy_IDs.txt
+		diamond blastp --more-sensitive -p $threads --id $prot_id -e $eval -k 1 -d /bioinf/home/leon.dlugosch/Resources/DiamondDB_CAZy/diamond_cazy_db.dmnd -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/CAZy/CAZy_IDs.txt
 	fi
 	
 	if [[ "$no_uniref90" == "0" ]]; then
 		mkdir $oDir/06_classification/uniref90/
-		diamond blastp --more-sensitive -p $threads --id 70 -e 0.0000000001 -k 1 -d /bioinf/home/leon.dlugosch/Resources/UniRef/diamond_db/uniref90_2021_11.dmnd -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/uniref90/niref90_ids.txt
+		diamond blastp --more-sensitive -p $threads --id $prot_id -e $eval -k 1 -d /bioinf/home/leon.dlugosch/Resources/UniRef/diamond_db/uniref90_2021_11.dmnd -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/uniref90/niref90_ids.txt
 	fi
 	
 	if [[ "$no_kegg" == "0" ]]; then
-		mkdir $oDir/07_classification/GhostKOALA_parts
-		perl /bioinf/home/leon.dlugosch/Resources/FastaSplitter/fasta-splitter.pl $oDir/06_classification/Genes_aa.fna --part-size 300000000 --line-length 0 --out-dir $oDir/06_classification/GhostKOALA_parts
+		mkdir $oDir/06_classification/ghostkoala_parts
+		perl /bioinf/home/leon.dlugosch/Resources/FastaSplitter/fasta-splitter.pl $oDir/06_classification/Genes_aa.fna --part-size 300000000 --line-length 0 --out-dir $oDir/06_classification/ghostkoala_parts
 		gzip $oDir/06_classification/GhostKOALA_parts/*
 	fi
 fi
 
 ###################################################################################################################################
-# MODE: MG_mapping     													                                                 		  #
+# MODE: map   													                                                 		  #
 ###################################################################################################################################
-if [[ "$mode" == "MG_mapping" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 
 	if [[ "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 		rDir=$oDir/01_QC/Paired
@@ -535,14 +602,12 @@ if [[ "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 	else
 		mv $oDir/05_genes/all_genes_nuc_derep.fna 08_results
 	fi
-
-
 fi
 
 ###################################################################################################################################
 # MODE: binning     													                                                 		  #
 ###################################################################################################################################
-if [[ "$mode" == "binning" ]]; then
+if [[ "$mode" == "bin" ]]; then
 
 	mkdir -p $oDir/tmp 
 	mkdir -p $oDir/10_contig_depth
@@ -555,7 +620,7 @@ if [[ "$mode" == "binning" ]]; then
 		rm $oDir/tmp/mapped.sam
 		samtools sort $oDir/tmp/mapped.bam -o $oDir/tmp/mapped_sorted.bam
 		rm $oDir/tmp/mapped.bam
-		$jgi_summazize $out/tmp/mapped_sorted.bam --outputDepth $oDir/10_contig_depth/${s}_depth.txt
+		$jgi_summarize $out/tmp/mapped_sorted.bam --outputDepth $oDir/10_contig_depth/${s}_depth.txt
 		rm $oDir/tmp/mapped_sorted.bam
 	done
 
@@ -573,7 +638,7 @@ if [[ "$mode" == "binning" ]]; then
 	mv $oDir/11_bins/all_bins/* $oDir/11_bins/
 	rm -rf $oDir/11_bins/all_bins/
 	mkdir -p $oDir/tmp/MAG_check/CheckM/02_tree
-	checkm tree $oDir/11_bins/ $oDir/tmp/MAG_check/CheckM/02_tree -x fa -t $t
+	checkm tree $oDir/11_bins/ $oDir/tmp/MAG_check/CheckM/02_tree -x fa -t $threads
 	mkdir -p $oDir/tmp/MAG_check/CheckM/03_markerfile
 	checkm checkm lineage_set $oDir/tmp/MAG_check/CheckM/02_tree $oDir/tmp/MAG_check/CheckM/03_markerfile
 	checkm taxon_set domain Bacteria $oDir/tmp/MAG_check/CheckM/03_markerfile
@@ -608,6 +673,7 @@ if [[ "$mode" == "binning" ]]; then
 	echo -e "bin\tContigs\tA\tT\tG\tC\tTotal_length" > $oDir/12_bins_stats/bin_sequence_Stats.txt
 	paste -d "\t" $oDir/tmp/bin_list.txt $oDir/tmp/Totalseqs.txt  $oDir/tmp/ATCG_Counts.txt $oDir/tmp/total_length.txt >> $oDir/12_bins_stats/bin_sequence_Stats.txt
 	rm -rf $oDir/tmp
+	rm -rf $oDir/10_contig_depth
 fi
 
 ###################################################################################################################################
