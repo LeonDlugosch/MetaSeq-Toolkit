@@ -35,6 +35,7 @@ In order to work properly, you will need to install dependencies and/or define p
 - [Removesmalls](https://github.com/burgsdorf/removesmalls/blob/master/removesmalls.pl)
 - [Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
 - [metaquast](http://quast.sourceforge.net/metaquast)
+- [sortmeRNA](https://hpc.nih.gov/apps/sortmeRNA.html)
 
 ## metaseq usage
 ```
@@ -53,6 +54,7 @@ bin             binning, evaluation and classification of MAGs
 rna_depletion   in silico depletion of rRNA reads from (meta)transcriptomic reads
 complete        starts with illimina reads and includes QC, assembly, predict_genes, filter_genes, cluster_genes, classification and map
 post_assembly   starts with assembled contigs and includes predict_genes, filter_genes, cluster_genes, classification and map
+transcriptome   combines qc, rrna_depletion and (meta)genome mapping of mRNA reads
 ```
 
 ### OPTIONS
@@ -174,3 +176,15 @@ This module uses metabat2 to create metagenomic bins of representative organisms
 metaseq bin -i path/to/trimmed_reads -c path/to/corresponding/contigs -o output/directory -t 16
 ```
 Resulting bins, taxonomic classification and bin-statistics are saved in output/directory/11_bins and output/directory/12_bin_stats
+#### rrna_depletion
+Even with prior rRNA, a large fraction of sequenced RNA is usually ribosomal. Since these sequences are not really interesting for expression analysis, they are sorted out using sortmeRNA and 98%id 16S, 23S, 18S, 28S (SILVA) and 5S (rfam) databases. Unaligned read (i.e. mRNA) as well as rRNA reads are saved in different files.
+
+```
+metaseq rrna_depletion -i path/to/transcriptome_reads -o output/directory -t 16
+```
+#### transcriptome
+This module combines modules qc, rrna_depletion and map to calculate (meta)transcriptome read coverage for genome(s) or metagenomes. Output is the sames as in map. 
+
+```
+metaseq transcriptome -i path/to/transcriptome_reads -db path/to/database.fasta -o output/directory -t 16
+```
