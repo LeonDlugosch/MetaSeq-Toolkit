@@ -760,32 +760,3 @@ if [[ "$mode" == "bin" ]]; then
 	rm -rf $oDir/10_contig_depth
 fi
 
-###################################################################################################################################
-# MODE: rna_depletion     													                                              		  #
-###################################################################################################################################
-if [[ "$mode" == "rna_depletion" ]]; then
-	mkdir -p $oDir/01_SortmeRNA/Out/ 
-	mkdir -p $oDir/01_SortmeRNA/Unaligned/ 
-	
-	( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/sortME_files.txt
-	for s in $(cat $oDir/tmp/sortME_files.txt); do
-		sortmerna --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-16s-id90.fasta \
-		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-23s-id98.fasta \
-		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/euk/silva-euk-18s-id95.fasta \
-		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/euk/silva-euk-28s-id98.fasta \
-		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/5s/rfam-5.8s-database-id98.fasta \
-		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/5s/rfam-5s-database-id98.fasta \
-		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/arc/silva-arc-16s-id95.fasta \
-		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/arc/silva-arc-23s-id98.fasta \
-		--reads $rDir/${s}_R1.fastq \
-		--reads $rDir/${s}_R2.fastq \
-		--workdir $oDir/01_SortmeRNA/Out/ \
-		--other $oDir/01_SortmeRNA/Unaligned/ \
-		--threads 1:1:$threads \
-		--paired_out \
-		--fastx \
-		-e 0.00001 \
-		-v
-	done
-fi
-
