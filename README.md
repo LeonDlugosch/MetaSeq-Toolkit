@@ -177,7 +177,7 @@ metaseq bin -i path/to/trimmed_reads -c path/to/corresponding/contigs -o output/
 ```
 Resulting bins, taxonomic classification and bin-statistics are saved in output/directory/11_bins and output/directory/12_bin_stats
 #### rrna_depletion
-Even with prior rRNA, a large fraction of sequenced RNA is usually ribosomal. Since these sequences are not really interesting for expression analysis, they are sorted out using sortmeRNA and 98%id 16S, 23S, 18S, 28S (SILVA) and 5S (rfam) databases. Unaligned read (i.e. mRNA) as well as rRNA reads are saved in different files.
+Even with prior rRNA depletion, a large fraction of sequenced RNA is usually ribosomal. Since these sequences are not really interesting for expression analysis, they are sorted out using sortmeRNA and 98%id 16S, 23S, 18S, 28S (SILVA) and 5S (rfam) databases. Unaligned read (i.e. mRNA) as well as rRNA reads are saved in different files.
 
 ```
 metaseq rrna_depletion -i path/to/transcriptome_reads -o output/directory -t 16
