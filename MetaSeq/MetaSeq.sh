@@ -311,7 +311,7 @@ if [[ "$mode" == "transcriptome" ]]; then
 	rDir=$oDir/01_QC/Paired
 fi
 	( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/Files.txt
-	for s in $(cat Files_${n}.txt); do	
+	for s in $(cat $oDir/tmp/Files.txt); do	
 		sortmerna --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-16s-id90.fasta \
         	    --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-23s-id98.fasta \
            		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/euk/silva-euk-18s-id95.fasta \
