@@ -52,7 +52,7 @@ eval=0.00001
 db=0							# database for mapping of reads and read abundance tables
 rDir=0							# input directory
 oDir=.							# output directory
-
+zip=0
 ################################################################################################################################
 #                                                          Options                                                             #
 ################################################################################################################################
@@ -158,6 +158,11 @@ while : ; do
 		mem=$1
 		shift
 		;;
+	-zip)
+		shift
+		zip=$1
+		shift
+		;;
 	-h|--help)
 		echo ""
 		echo "USAGE:"
@@ -229,7 +234,7 @@ fi
 ###################################################################################################################################
 # MODE: qc														                                                           		  #
 ###################################################################################################################################
-if [[ "$mode" == "qc"  || "$mode" == "complete" ]]; then
+if [[ "$mode" == "qc" || "$mode" == "complete" || "$mode" == "transcriptome" ]]; then
 
 	mkdir -p $oDir/01_QC/Paired
 	mkdir -p $oDir/01_QC/Unpaired
@@ -252,13 +257,85 @@ if [[ "$mode" == "qc"  || "$mode" == "complete" ]]; then
 		LEADING:20 \
 		MINLEN:$minR 
 	done
+
+	if [[ "$zip" == "1" ]]; then
+		echo "Compressing raw reads..."
+
+		( cd $rDir && ls *.f ) > $oDir/tmp/compress_files.txt
+		for s in $(cat $oDir/tmp/compress_files.txt); do
+			(
+				gzip $rDir/$s
+			) &
+
+			if [[ $(jobs -r -p | wc -l) -gt $threads ]]; then
+				wait -n
+			fi
+		sleep 1s
+		done
+		echo "Compressing unpaired reads..."
+		( cd $oDir/01_QC/Unpaired/ && ls *.f ) > $oDir/tmp/compress_files.txt
+		for s in $(cat $oDir/tmp/compress_files.txt); do
+			(
+				gzip $oDir/01_QC/Unpaired/$s
+			) &
+
+			if [[ $(jobs -r -p | wc -l) -gt $threads ]]; then
+				wait -n
+			fi
+		sleep 1s
+		done
+		echo "Compressing hq paired reads..."
+		( cd $oDir/01_QC/Paired/ && ls *.f ) > $oDir/tmp/compress_files.txt
+		for s in $(cat $oDir/tmp/compress_files.txt); do
+			(
+				gzip $oDir/01_QC/Paired/$s
+			) &
+
+			if [[ $(jobs -r -p | wc -l) -gt $threads ]]; then
+				wait -n
+			fi
+		sleep 1s
+	done
+
+	fi
 	rm -rf $oDir/tmp/
 fi
+###################################################################################################################################
+# MODE: rRNA depletion														                                                      #
+###################################################################################################################################
+if [[ "$mode" == "rrna_depletion" || "$mode" == "transcriptome" ]]; then
+	mkdir -p $oDir/01_SortmeRNA/mRNA
+	mkdir -p $oDir/01_SortmeRNA/rRNA
+	mkdir -p $oDir/tmp
+if [[ "$mode" == "transcriptome" ]]; then
+	rDir=$oDir/01_QC/Paired
+fi
+	( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/Files.txt
+	for s in $(cat Files_${n}.txt); do	
+		sortmerna --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-16s-id90.fasta \
+        	    --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-23s-id98.fasta \
+           		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/euk/silva-euk-18s-id95.fasta \
+            	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/euk/silva-euk-28s-id98.fasta \
+            	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/5s/rfam-5.8s-database-id98.fasta \
+            	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/5s/rfam-5s-database-id98.fasta \
+            	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/arc/silva-arc-16s-id95.fasta \
+            	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/arc/silva-arc-23s-id98.fasta \
+            	--reads $rDir/${s}_R1.fastq \
+            	--reads $rDir/${s}_R2.fastq \
+            	--workdir $oDir/01_SortmeRNA/rRNA/ \
+            	--other $oDir/01_SortmeRNA/mRNA/ \
+            	--threads 1:1:$threads \
+            	--paired_out \
+            	--fastx \
+            	-e 0.00001 \
+            	-v
+    done
 
+fi
 ###################################################################################################################################
 # MODE: assembly (only run this if you have sufficient memory - requirements vary by sample heterogeinety and sequencing depth)   #
 ###################################################################################################################################
-if [[ "$mode" == "assembly"  || "$mode" == "complete"  ]]; then
+if [[ "$mode" == "assembly" || "$mode" == "complete" ]]; then
 
 if [[ "$mode" == "complete" ]]; then
 	rDir=$oDir/01_QC/Paired
@@ -530,11 +607,14 @@ fi
 ###################################################################################################################################
 # MODE: map   													                                                 		  #
 ###################################################################################################################################
-if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" || "$mode" == "transcriptome" ]]; then
 
 	if [[ "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 		rDir=$oDir/01_QC/Paired
 		db=$oDir/05_nr/Genes_nr${id}.fna
+	fi
+	if [[ "$mode" == "transcriptome" ]]; then
+		rDir=$oDir/01_SortmeRNA/mRNA/
 	fi
 
 	mkdir -p $oDir/tmp/bam
@@ -565,8 +645,12 @@ if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" ]];
 		
 		rm $oDir/tmp/bam/*.bam
 		rm $oDir/tmp/bam/*.bai
-	done 
+	done
+
+	rm -rf $oDir/tmp/  
 fi
+
+
 ###################################################################################################################################
 # MODE: gathering results --- only in complete and postassembly mode	                                                 		  #
 ###################################################################################################################################
