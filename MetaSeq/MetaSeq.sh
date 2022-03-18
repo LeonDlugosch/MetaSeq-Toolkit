@@ -33,6 +33,7 @@ mode=0
 metaviral=0						# SPAdes virus assembly
 complete_genes=0				# should only complete genes (Prodigal) be used for analysis?
 cluster_method=usearch 			# Clustering algorythm. can be "usearch" or "cdhit"
+bac_only=0						# Only use bacterial datasets for in silico rRNA depletion
 no_cazy=0						# Skip cazyme calssification
 no_uniref90=0					# Skip uniref calssification
 no_kegg=0						# Skip splitting of aa data for GhostKOALA
@@ -78,6 +79,11 @@ while : ; do
 		cDir=$1
 		shift
 		;;
+	-db)
+		shift
+		db=$1
+		shift
+		;;
 	-minR)
 		shift
 		minR=$1
@@ -89,8 +95,7 @@ while : ; do
 		shift
 		;;
 	-metaviral)
-		shift
-		metaviral=$1
+		metaviral=1
 		shift
 		;;
 	-cluster_method)
@@ -99,23 +104,19 @@ while : ; do
 		shift
 		;;
 	-no_cluster)
-		shift
-		no_cluster=$1
+		no_cluster=1
 		shift
 		;;
 	-no_tax)
-		shift
-		no_tax=$1
+		no_tax=1
 		shift
 		;;
 	-no_kegg)
-		shift
-		no_kegg=$1
+		no_kegg=1
 		shift
 		;;
 	-no_uniref90)
-		shift
-		no_uniref90=$1
+		no_uniref90=1
 		shift
 		;;
 	-minlen)
@@ -139,8 +140,7 @@ while : ; do
 		shift
 		;;
 	-complete_genes)
-		shift
-		complete_genes=$1
+		complete_genes=S1
 		shift
 		;;
 	-mincov)
@@ -161,6 +161,10 @@ while : ; do
 	-zip)
 		shift
 		zip=$1
+		shift
+		;;
+	-bac_only)
+		bac_only=1
 		shift
 		;;
 	-h|--help)
@@ -306,12 +310,42 @@ fi
 if [[ "$mode" == "rrna_depletion" || "$mode" == "transcriptome" ]]; then
 	mkdir -p $oDir/01_SortmeRNA/mRNA
 	mkdir -p $oDir/01_SortmeRNA/rRNA
-	mkdir -p $oDir/tmp
+	mkdir -p $oDir/tmp/SortmeRNA
 if [[ "$mode" == "transcriptome" ]]; then
 	rDir=$oDir/01_QC/Paired
 fi
+if [[ "$bac_only" == "1" ]]; then
 	( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/Files.txt
 	for s in $(cat $oDir/tmp/Files.txt); do	
+		mkdir -p $oDir/tmp/SortmeRNA
+		sortmerna --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-16s-id90.fasta \
+        	    --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-23s-id98.fasta \
+            	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/5s/rfam-5s-database-id98.fasta \
+            	--reads $rDir/${s}_R1.fastq \
+            	--reads $rDir/${s}_R2.fastq \
+            	--workdir $oDir/tmp/SortmeRNA/ \
+            	--other $oDir/tmp/SortmeRNA/ \
+            	--threads 1:1:$threads \
+            	--paired_out \
+            	--fastx \
+            	-e 0.00001 \
+            	-v
+
+    mv $oDir/tmp/SortmeRNA/out/other.fastq $oDir/01_SortmeRNA/mRNA/${s}_mRNA.fastq
+	mv $oDir/tmp/SortmeRNA/out/aligned.fastq $oDir/01_SortmeRNA/rRNA/${s}_rRNA.fastq
+	cat $oDir/01_SortmeRNA/mRNA/${s}_mRNA.fastq | grep " 1:N:0" -A3 | sed '/--/d' > $oDir/01_SortmeRNA/mRNA/${s}_mRNA_R1.fastq
+	cat $oDir/01_SortmeRNA/mRNA/${s}_mRNA.fastq | grep " 2:N:0" -A3 | sed '/--/d' > $oDir/01_SortmeRNA/mRNA/${s}_mRNA_R2.fastq
+	awk '!/--/{print $0}' $oDir/01_SortmeRNA/mRNA/${s}_mRNA_R1.fastq > $oDir/01_SortmeRNA/mRNA/${s}_t_R1.fastq
+	awk '!/--/{print $0}' $oDir/01_SortmeRNA/mRNA/${s}_mRNA_R2.fastq > $oDir/01_SortmeRNA/mRNA/${s}_t_R2.fastq	
+	rm $oDir/01_SortmeRNA/rRNA/${s}_rRNA.fastq
+    rm -rf $oDir/tmp/SortmeRNA
+    done	
+fi
+
+if [[ "$bac_only" == "0" ]]; then
+	( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/Files.txt
+	for s in $(cat $oDir/tmp/Files.txt); do	
+		mkdir -p $oDir/tmp/SortmeRNA
 		sortmerna --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-16s-id90.fasta \
         	    --ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/bac/silva-bac-23s-id98.fasta \
            		--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/euk/silva-euk-18s-id95.fasta \
@@ -322,15 +356,24 @@ fi
             	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/arc/silva-arc-23s-id98.fasta \
             	--reads $rDir/${s}_R1.fastq \
             	--reads $rDir/${s}_R2.fastq \
-            	--workdir $oDir/01_SortmeRNA/rRNA/ \
-            	--other $oDir/01_SortmeRNA/mRNA/ \
+            	--workdir $oDir/tmp/SortmeRNA/ \
+            	--other $oDir/tmp/SortmeRNA/ \
             	--threads 1:1:$threads \
             	--paired_out \
             	--fastx \
             	-e 0.00001 \
             	-v
-    done
 
+    mv $oDir/tmp/SortmeRNA/out/other.fastq $oDir/01_SortmeRNA/mRNA/${s}_mRNA.fastq
+	mv $oDir/tmp/SortmeRNA/out/aligned.fastq $oDir/01_SortmeRNA/rRNA/${s}_rRNA.fastq
+	cat $oDir/01_SortmeRNA/mRNA/${s}_mRNA.fastq | grep " 1:N:0" -A3 | sed '/--/d' > $oDir/01_SortmeRNA/mRNA/${s}_tmp_mrna_R1.fastq
+	cat $oDir/01_SortmeRNA/mRNA/${s}_mRNA.fastq | grep " 2:N:0" -A3 | sed '/--/d' > $oDir/01_SortmeRNA/mRNA/${s}_tmp_mrna_R2.fastq
+	awk '!/--/{print $0}' $oDir/01_SortmeRNA/mRNA/${s}_tmp_mrna_R1.fastq > $oDir/01_SortmeRNA/mRNA/${s}_mrna_R1.fastq
+	awk '!/--/{print $0}' $oDir/01_SortmeRNA/mRNA/${s}_tmp_mrna_R2.fastq > $oDir/01_SortmeRNA/mRNA/${s}_mrna_R2.fastq	
+	rm $oDir/01_SortmeRNA/rRNA/${s}_rRNA.fastq
+    rm -rf $oDir/tmp/SortmeRNA
+    done
+fi
 fi
 ###################################################################################################################################
 # MODE: assembly (only run this if you have sufficient memory - requirements vary by sample heterogeinety and sequencing depth)   #
@@ -450,7 +493,7 @@ if [[ "$mode" == "filter_genes" || "$mode" == "postassembly" || "$mode" == "comp
 	faaDir=$rDir/faa/
 	fnaDir=$rDir/fna/
 
-	if [[ "${complete_genes}" == 1 ]]; then
+	if [[ "${complete_genes}" == "1" ]]; then
 		mkdir $rDir/complete_fna
 		mkdir $rDir/complete_faa  
 		
@@ -634,13 +677,13 @@ if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" || 
 		-p $threads \
 		-S $oDir/tmp/sam/${s}.sam
 		
-		samtools view -b -S $oDir/tmp/sam/${s}.sam > $oDir/tmp/bam/${s}.bam
+		samtools view -b -S $oDir/tmp/sam/${s}.sam > $oDir/tmp/bam/${s}.bam -@ $threads
 		rm $oDir/tmp/${s}.sam
 		
-		samtools sort $oDir/tmp/bam/${s}.bam > $oDir/tmp/bam/${s}.sorted.bam 
+		samtools sort $oDir/tmp/bam/${s}.bam > $oDir/tmp/bam/${s}.sorted.bam -@ $threads
 		rm $oDir/tmp/bam/${s}.bam
 		
-		samtools index $oDir/tmp/bam/${s}.sorted.bam 
+		samtools index $oDir/tmp/bam/${s}.sorted.bam -@ $threads
 		samtools idxstats $oDir/tmp/bam/${s}.sorted.bam > $oDir/07_map/${s}_mapped.txt
 		
 		rm $oDir/tmp/bam/*.bam
