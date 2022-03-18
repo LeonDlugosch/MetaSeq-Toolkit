@@ -64,20 +64,21 @@ transcriptome   combines qc, rrna_depletion and (meta)genome mapping of mRNA rea
 -t              [INT] Number of available threads; default: 16
 -minR           [INT] [QC] Minimal read length (R1 & R2 read) after adapter and quality clipping. Shorter reads will be discarded; default = 100
 -minQ           [INT] [QC] Minimal average Q-score within a 4bp sliding window. default: 20
+-bac_only       [SWITCH] [rrna_depletion] if set: Only use bacterial 16S, 23S and 5S datasets to sort out rRNA sequences. default: off
 -mem            [INT] [assembly] memory available for metaSPAdes assembly. default: 180GB
--metaviral      [0/1] [assembly] assembly of viral contigs. default: 0
+-metaviral      [SWITCH] [assembly] assembly of viral contigs. default: 0
 -k              [INT,INT,INT…] [assembly] k-mer size for assembly, default: 21,33,55
--complete_genes [0/1] 
+-complete_genes [SWITCH] [filter_genes] Only use genes with prodigal complete-flag. default: off 
 -minlen         [INT] [filter_genes] Minimal length of genes in potential amino acid sequence. default: 210 (=70 amino acids)
 -mincov         [INT] [filter_genes] Minimal coverage for genes to be kept. default: 3
 -cluster_method [usearch/cdhit] [cluster_genes] Cluster method used for clustering of nucleotide sequences. default: usearch
 -id             [INT] [cluster_genes] Threshold for nucleotide identity (%) clustering.  Ignored if –no_cluster 1. default: 95
--no_cluster     [0/1] [cluster_genes] if set to 1: do not cluster genes. default: 0
+-no_cluster     [SWITCH] [cluster_genes] if set : do not cluster genes. default: off
 -eval           [FLOAT] [classify] E-value threshold for classification default: 0.00001
--no_cazy        [0/1] [classify] if set to 1: do not classify sequences using the CAZyme database. default: 0
--no_kegg        [0/1] [classify] if set to 1: do not split amino acid sequences in parts for GHOSTKoala classification. default: 0
--no_uniref      [0/1] [classify] if set to 1: do not classify sequences using the uniref90 database. default: 0
--no_tax         [0/1] [classify] if set to 1: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: 0
+-no_cazy        [SWITCH] [classify] if set: do not classify sequences using the CAZyme database. default: off
+-no_kegg        [SWITCH] [classify] if set: do not split amino acid sequences in parts for GHOSTKoala classification. default: off
+-no_uniref      [SWITCH] [classify] if set: do not classify sequences using the uniref90 database. default: off
+-no_tax         [SWITCH] [classify] if set: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: off
 -prot_id        [INT] [classify] minimal amino acid sequence identity to CAZyme and UniRef90 database. default: 70
 -db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately.
 ```
