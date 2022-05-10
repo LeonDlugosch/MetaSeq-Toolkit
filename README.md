@@ -36,6 +36,8 @@ In order to work properly, you will need to install dependencies and/or define p
 - [Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
 - [metaquast](http://quast.sourceforge.net/metaquast)
 - [sortmeRNA](https://hpc.nih.gov/apps/sortmeRNA.html)
+- fastANI
+- gtdbtk
 
 ## metaseq usage
 ```
