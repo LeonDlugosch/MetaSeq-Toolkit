@@ -36,8 +36,9 @@ In order to work properly, you will need to install dependencies and/or define p
 - [Fasx-toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
 - [metaquast](http://quast.sourceforge.net/metaquast)
 - [sortmeRNA](https://hpc.nih.gov/apps/sortmeRNA.html)
-- fastANI
-- gtdbtk
+- [fastANI](https://github.com/ParBLiSS/FastANI)
+- [gtdbtk](https://github.com/Ecogenomics/GtdbTk)
+- [checkM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm)
 
 ## metaseq usage
 ```
