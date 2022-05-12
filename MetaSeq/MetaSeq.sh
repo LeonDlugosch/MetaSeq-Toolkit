@@ -185,7 +185,6 @@ while : ; do
 		echo "complete        starts with illimina reads and includes QC, assembly, predict_genes, filter_genes, cluster_genes, classification and map"
 		echo "post_assembly   starts with assembled contigs and includes predict_genes, filter_genes, cluster_genes, classification and map"
 		echo "transcriptome   combines qc, rrna_depletion and (meta)genome mapping of mRNA reads [-bac_only, -db]"
-		echo "For additional support, contact: leon.dlugosch>uni-oldenburg.de"
 		echo ""
 		echo "OPTIONS:"
 		echo "-i              [PATH] directory containing input files. Varies with module."
@@ -225,20 +224,29 @@ minAA=$(($minlen/3))
 
 if [[ "$mode" == 0 ]]; then
 	echo "Error: no mode defined"
-
+	echo "use metaseq -h for modules and options"
+	echo "Exiting skript."
 	exit
 fi
 
 if [[ "$rDir" == 0 ]]; then
 	echo "No input directory selected."
+	echo "useo metaseq -h for modules and options"
 	echo "Exiting skript."
 	exit
 fi
 
 if [[ "$oDir" == . ]]; then
+	echo ""
+	echo "##########################################################"
 	echo "No output directory selected."
 	echo "Output will be written in your current working directory."
-	sleep 15s
+	echo "##########################################################"
+	echo ""
+	echo ""
+	echo "Script starts in 15 seconds!"
+
+#	sleep 15s
 fi
 
 rename "s/-//g" $inDir/*.fastq* ### deletes "-" from strings, because they make problems
@@ -406,6 +414,19 @@ if [[ "$bac_only" == "0" ]]; then
 fi
 fi
 ###################################################################################################################################
+# MODE: metaquast 																												  #
+###################################################################################################################################
+if [[ "$mode" == "metaquast" ]]; then
+	mkdir -p $oDir/tmp/
+	( cd $rDir && ls *.f* ) > $oDir/tmp/metaquast_files.txt
+		for s in $(cat $oDir/tmp/metaquast_files.txt); do
+		mkdir -p $oDir/02_1_Quast_500/${s}
+		metaquast.py -t $threads --max-ref-number 0 -m 500 -o $oDir/02_1_Quast_m500/${s} $rDir/${s}
+	done
+
+fi
+
+###################################################################################################################################
 # MODE: assembly (only run this if you have sufficient memory - requirements vary by sample heterogeinety and sequencing depth)   #
 ###################################################################################################################################
 if [[ "$mode" == "assembly" || "$mode" == "complete" ]]; then
@@ -493,8 +514,7 @@ if [[ "$mode" == "predict_genes" || "$mode" == "postassembly" || "$mode" == "com
 	 ( cd $oDir/03_filtered_contigs && ls *.fasta ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/Prodigal_Files.txt
 	 for s in $(cat $oDir/tmp/Prodigal_Files.txt); do
 	 	(FILE=$s
-	 		echo $FILE" ..." 
-	 		prodigal  -p meta -q -i $oDir/03_filtered_contigs/${FILE}_f.fasta -d $oDir/tmp/fna/${FILE}_genes.fna -a $oDir/tmp/faa/${s}_aas.faa
+	 		prodigal  -p meta -q -i $oDir/03_filtered_contigs/${FILE}_f.fasta -d $oDir/04_genes/fna/${FILE}_genes.fna -a $oDir/04_genes/faa/${s}_aas.faa
 	 		) &
 
 	 	if [[ $(jobs -r -p | wc -l) -gt $threads ]]; then
@@ -503,11 +523,23 @@ if [[ "$mode" == "predict_genes" || "$mode" == "postassembly" || "$mode" == "com
 	 	sleep 1s
 	 done
 
-	 ( cd $oDir/tmp/fna/ && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/format_files.txt
-	 for s in $(cat $oDir/tmp/format_files.txt); do
-	 	fasta_formatter -i $oDir/tmp/fna/${s}.fna -o $oDir/04_genes/fna/${s}.fna
-	 	fasta_formatter -i $oDir/tmp/faa/${s}.faa -o $oDir/04_genes/faa/${s}.faa
-	 done
+
+    while :; do
+        wait 60s
+        if [[ $(jobs -r -p | wc -l) == "0" ]]; then
+            break
+        fi
+    done
+    wait 30s
+	goal=$(cat $oDir/tmp/Prodigal_Files.txt | wc -l)
+	current=$(( cd $oDir/04_genes/fna/ && ls *_genes.fna ) | wc -l)
+	
+	if [[ "$goal" != "$current" ]]; then
+		echo "Incomplete file output! Please check ${fnaDir}!"
+		exit
+	fi
+	
+
 	 rm -rf $oDir/tmp/
 	fi
 
@@ -520,14 +552,15 @@ if [[ "$mode" == "filter_genes" || "$mode" == "postassembly" || "$mode" == "comp
 			rDir=$oDir/04_genes
 		fi
 	mkdir -p $oDir/tmp
-	faaDir=$rDir/faa/
-	fnaDir=$rDir/fna/
+	rDir2=${rDir::-1}
+	faaDir=$rDir2/faa/
+	fnaDir=$rDir2/fna/
 
 	if [[ "${complete_genes}" == "1" ]]; then
 		mkdir $rDir/complete_fna
 		mkdir $rDir/complete_faa  
 		
-		( cd $rDir/fna && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/filter_files.txt
+		( cd $fnaDir && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/filter_files.txt
 		for s in $(cat $oDir/tmp/filter_files.txt); do
 			cat $rDir/fna/${s}.fna | grep "partial=00" -A1 > $oDir/04_genes/complete_fna/${s}_complete.fna
 			cat $rDir/faa/${s}.faa | grep "partial=00" -A1 > $oDir/04_genes/complete_faa/${s}_complete.faa
@@ -552,36 +585,59 @@ if [[ "$mode" == "filter_genes" || "$mode" == "postassembly" || "$mode" == "comp
 	export fnaOut
 	export mincov
 	export minlen
+	export fnaDir
+	export faaDir
 
-	( cd $fnaOut && ls *.fna ) > $oDir/tmp/FilterGenes_files.txt
+	 ( cd $fnaDir && ls *.f* ) | awk 'BEGIN{FS=OFS="."}{NF--; print}' > $oDir/tmp/format_files.txt
+	 for s in $(cat $oDir/tmp/format_files.txt); do
+	 	echo "Tabularizing ${s}"
+	 	fasta_formatter -i $fnaDir/${s}.fna -o $fnaDir/${s}_t.fna -t
+	 	rm $fnaDir/${s}.fna
+	 	fasta_formatter -i $faaDir/${s}.faa -o $faaDir/${s}_t.faa -t
+	 	rm $faaDir/${s}.faa
+	 done
+
+	( cd $fnaDir && ls *.fna ) > $oDir/tmp/FilterGenes_files.txt
 	for s in $(cat $oDir/tmp/FilterGenes_files.txt); do
-		(
-			export $s
+		(			
+			export s
+			echo $s
 			Rscript /bioinf/home/leon.dlugosch/Resources/R_functions/GeneFilter.R
+			sleep 5s
 			) &
 
-		if [[ $(jobs -r -p | wc -l) -gt $threads ]]; then
+		if [[ $(jobs -r -p | wc -l) -gt 4 ]]; then
 			wait -n
 		fi
-		sleep 1s
+		sleep 2s
 	done
 
-	( cd $rDir/fna && ls *.fna ) | cut -f 1 -d '.' > $oDir/tmp/Format_Files.txt 
+    while :; do
+        wait 60s
+        if [[ $(jobs -r -p | wc -l) == "0" ]]; then
+            break
+        fi
+    done
+	wait 30s
+	goal=$(cat $oDir/tmp/format_files.txt | wc -l)
+	current=$(( cd $fnaOut && ls *_filtered.fna ) | wc -l)
+	
+	if [[ "$goal" != "$current" ]]; then
+		echo "Incomplete file output! Please check ${fnaDir}!"
+		exit
+	fi
+	
+
+	( cd $oDir/04_genes/fna_filtered && ls *_f.fna ) | cut -f 1 -d '.' > $oDir/tmp/Format_Files.txt 
 	for s in $(cat $oDir/tmp/Format_Files.txt ); do
-		s_new=$(echo "$s" | sed 's/_gf//g')
-		python $tab2fasta $fnaOut/${s}.fna 2 1 > $fnaOut/${s_new}_filtered.fna
-		python $tab2fasta $faaOut/${s}.faa 2 1 > $faaOut/${s_new}_filtered.faa
+		s_new=$(echo "$s" | sed 's/_f/_filtered/g')
+		python $tab2fasta $fnaOut/${s}.fna 2 1 > $fnaOut/${s_new}.fna
+		python $tab2fasta $faaOut/${s}.faa 2 1 > $faaOut/${s_new}.faa
 	done
 
-	rm $faaOut/*_gf*
-	rm $fnaOut/*_gf*
-	mkdir -p 04_genes/prot_filtered
-	mkdir -p 04_genes/nuc_filtered
-	mv $faaOut/*filtered* 04_genes/nuc_filtered 
-	mv $fnaOut/*filtered* 04_genes/prot_filtered 
-	rm -rf $fnaOut 
-	rm -rf $faaOut 
-	rm -rf $oDir/tmp/
+	rm $faaOut/*_f.faa*
+	rm $fnaOut/*_f.fna*
+	# rm -rf $oDir/tmp/
 fi
 
 ###################################################################################################################################
@@ -589,27 +645,38 @@ fi
 ###################################################################################################################################
 if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 		if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
-			rDir=$oDir/04_genes/nuc_filtered
+			if [[ "${complete_genes}" == 1 ]]; then
+				rDir=$oDir/04_genes/complete_fna_filtered
+			else
+				rDir=$oDir/04_genes/fna_filtered
+			fi
 		fi
-
+		
+	echo "##########################################################"
+	echo "Combining gene files..."
+	echo "##########################################################"
 	mkdir -p $oDir/04_genes/	
 	cat $rDir/*.fna > $oDir/04_genes/all_genes_nuc.fna
-	
+
+	echo "##########################################################"
+	echo "Dereplicating genes..."
+	echo "##########################################################"	
 	usearch -fastx_uniques $oDir/04_genes/all_genes_nuc.fna \
 	-sizeout \
 	-threads $threads \
 	-fastaout $oDir/04_genes/all_genes_nuc_derep.fna
-	
+
+	echo "##########################################################"
+	echo "Sorting genes..."
+	echo "##########################################################"	
 	usearch -sortbysize $oDir/04_genes/all_genes_nuc_derep.fna \
 	-fastaout $oDir/04_genes/all_genes_nuc_derep_s.fna \
 	-minsize 1
 
-	rm $oDir/04_genes/all_genes_nuc_derep.fna
-
 	if [[ "$no_cluster" == "0" ]]; then
 		mkdir -p 05_nr/
 		if [[ "$cluster_method" == "usearch" ]]; then
-			usearch -cluster_fast $oDir/05_genes/all_genes_nuc_derep_s.fna \
+			usearch -cluster_fast $oDir/04_genes/all_genes_nuc_derep_s.fna \
 			-id 0.$id \
 			-centroids $oDir/05_nr/Genes_nr${id}.fna
 			gzip $oDir/04_genes/all_genes_nuc_derep_s.fna
@@ -691,9 +758,9 @@ if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" || 
 	fi
 
 	mkdir -p $oDir/tmp/bam
-	mkdir -p $oDir/tmp/sam
 	mkdir -p $oDir/tmp/db
 	mkdir -p $oDir/07_map
+
 	
 	bowtie2-build ${db} $oDir/tmp/db/Bowtie2.db
 	DB=$oDir/tmp/db/Bowtie2.db
@@ -707,17 +774,22 @@ if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" || 
 		-p $threads \
 		-S $oDir/tmp/sam/${s}.sam
 		
-		samtools view -b -S $oDir/tmp/sam/${s}.sam > $oDir/tmp/bam/${s}.bam -@ $threads
-		rm $oDir/tmp/${s}.sam
+		samtools view -b -S $oDir/tmp/sam/${s}.sam -@ $threads > $oDir/tmp/bam/${s}.bam 
+		rm $oDir/tmp/sam/${s}.sam
 		
-		samtools sort $oDir/tmp/bam/${s}.bam > $oDir/tmp/bam/${s}.sorted.bam -@ $threads
+		samtools sort $oDir/tmp/bam/${s}.bam -@ $threads > $oDir/tmp/bam/${s}.sorted.bam 
 		rm $oDir/tmp/bam/${s}.bam
 		
 		samtools index $oDir/tmp/bam/${s}.sorted.bam -@ $threads
-		samtools idxstats $oDir/tmp/bam/${s}.sorted.bam > $oDir/07_map/${s}_mapped.txt
+		samtools idxstats $oDir/tmp/bam/${s}.sorted.bam > $oDir/tmp/map/${s}_mapped.txt
 		
+		if (( $(stat -c%s "$oDir/tmp/map/${s}_mapped.txt") > 0 )); then
+    	mv $oDir/tmp/map/${s}_mapped.txt  mkdir -p $oDir/07_map/${s}_mapped.txt 
+		fi
+
 		rm $oDir/tmp/bam/*.bam
 		rm $oDir/tmp/bam/*.bai
+
 	done
 
 	rm -rf $oDir/tmp/  
@@ -832,4 +904,5 @@ if [[ "$mode" == "bin" ]]; then
 	rm -rf $oDir/tmp
 	rm -rf $oDir/10_contig_depth
 fi
+
 
