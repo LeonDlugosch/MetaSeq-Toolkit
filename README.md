@@ -12,7 +12,7 @@ In general this pipeline is intended to be a convenient way to work though large
 4.	Generation of a non-redundant gene catalogue
 5.	Classification of genes
   5.1.	Taxonomy (Kaiju): RefSeq, Progenomes
-  5.2.	Function: KEGG (GHOSTKOLA), CAZYmes, Uniref90
+  5.2.	Function: KEGG (kofam scan), CAZYmes, Uniref90
 6.	MAG binning (Metabat2)
 7.	rRNA depletion of transcriptomes (sortmerna)
 8.	Read mapping (bowtie2) 
@@ -39,6 +39,7 @@ In order to work properly, you will need to install dependencies and/or define p
 - [fastANI](https://github.com/ParBLiSS/FastANI)
 - [gtdbtk](https://github.com/Ecogenomics/GtdbTk)
 - [checkM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm)
+- [kofma scan](https://github.com/takaram/kofam_scan)
 
 ## metaseq usage
 ```
@@ -78,10 +79,10 @@ transcriptome   combines qc, rrna_depletion and (meta)genome mapping of mRNA rea
 -id             [INT] [cluster_genes] Threshold for nucleotide identity (%) clustering.  Ignored if –no_cluster 1. default: 95
 -no_cluster     [SWITCH] [cluster_genes] if set : do not cluster genes. default: off
 -eval           [FLOAT] [classify] E-value threshold for classification default: 0.00001
--no_cazy        [SWITCH] [classify] if set: do not classify sequences using the CAZyme database. default: off
--no_kegg        [SWITCH] [classify] if set: do not split amino acid sequences in parts for GHOSTKoala classification. default: off
--no_uniref      [SWITCH] [classify] if set: do not classify sequences using the uniref90 database. default: off
--no_tax         [SWITCH] [classify] if set: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: off
+-cazy           [SWITCH] [classify] Classify sequences using the CAZyme database. default: off
+-kegg           [SWITCH & OPTION] [classify] Classify seqeunces using kofam-scan (KEGG orthologues). set to "prokaryote", "eukaryote" or "complete" for respective hmm profiles. default: off
+-uniref         [SWITCH] [classify] Classify sequences using the uniref90 database. default: off
+-tax            [SWITCH] [classify] Classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: off
 -prot_id        [INT] [classify] minimal amino acid sequence identity to CAZyme and UniRef90 database. default: 70
 -db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately.
 ```
@@ -129,6 +130,15 @@ metaseq predict_genes –i /path/to/contigs –o output/directory -minlen 210 �
 ```
 Results are saved in outDir/03_filtered_contigs and outDir/04_genes/fna for nucleotides sequences and outDir/04_genes/faa for amino acid sequences.
 
+#### select
+Only used to filter out incomplete gene sequences in complete-mode (-complete_genes option) from prodigal output. This relies on prodigals completeness-flags and is only usefull if these exits. If not, skip this. 
+
+##### Usage: 
+```
+metaseq select –i /path/to/genes –o output/directory -complete_genes –t 16
+```
+Complete nucleotide and amino acid sequences files will be generated in separate directories. 
+
 #### filter_genes
 Gene sequences are filtered according to –minlen and –mincov thresholds and renamed according to sample ID, contig and gene number. Even though this is not entirely necessary for the analysis, it may come in helpful in analysis outside the intentioned functionality (e.g. contig taxonomy, operons…). This modules an [R-skript](https://github.com/LeonDlugosch/MetaSeq-Toolkit/blob/main/scripts/genefilter.R). … and yes, I‘m sure there is a more efficient way to do that, but it’s not excruciatingly slow and it works fine :) 
 ##### Usage: 
@@ -157,7 +167,7 @@ metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -prot_id 7
 ```
 or (if no functional classification is required)
 ```
-metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -no_kegg 1 -no_uniref90 1 -no_cayz -eval 0.00001 -t 16
+metaseq classify -i path/to/GeneCatalogue.fasta –o output/directory -tax -kegg prokaryote -uniref90 -cayz -eval 0.00001 -t 16
 ```
 
 _*requires upload of partitioned amino (< 300 mb) acid sequence data (outDir/06_classification/GHOSTKOALA_splits) to https://www.kegg.jp/ghostkoala/ . Select 'genus_prokaryotes + family_eukaryotes + viruses' database. Only one job is allowed per registered e-mail address. Use multiple to queue up some jobs. This takes about 24h per sample._ 
