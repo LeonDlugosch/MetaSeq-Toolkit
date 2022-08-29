@@ -19,7 +19,7 @@ In general this pipeline is intended to be a convenient way to work though large
 
 Since the assembly is a very memory intensive process, it may be required to run this in a HPC environment if local computational power is insufficient (such as [CARL](https://uol.de/fk5/wr/hochleistungsrechnen/hpc-facilities) and requires the transfer of high quality/trimmed reads. More information on the [HPC of the Carl-von-Ossietzky University of Oldenburg](https://uol.de/fk5/wr/hochleistungsrechnen/faq-frequently-asked-questions). metaseq is modular and can be run completely with one command or using individual modules for purposes outside the intended scope of this wrapper – or simply to reanalyse data with different parameters. 
 Setup (… if used outside CvO University)
-In order to work properly, you will need to install dependencies and/or define paths to executables in your environment. When working on the ICBM server Rhea everything should be correct. If not, you will need to install the following third-party software:
+In order to work properly, you will need to install dependencies and/or define paths to executables in your environment. When working on the ICBM server Themis everything should be correct. If not, you will need to install the following third-party software:
 
 - [Trimmomatic](http://www.usadellab.org/cms/?page=trimmomatic)
 - [Usearch (64bit)](https://www.drive5.com/usearch/)
