@@ -2,13 +2,12 @@
 #                                                   INPUT REQUIRED                                                             #
 #                                                 General information                                                          #
 ################################################################################################################################
-
+module load metaseq
 ################################################################################################################################
 #                                          Paths to third-party software and databases                                         #
 ################################################################################################################################
-usearch=usearch64
 trimmo=$TRIMMOMATIC
-rm_smalls=removesmalls.pl
+#rm_smalls=/bioinf/home/leon.dlugosch/Resources/RemoveSmalls/RemoveSmalls.pl
 tab2fasta=tab2fasta
 
 Kaiju_RefSeq_Nodes=/bioinf/home/leon.dlugosch/Resources/Kaiju_nr_2021_03/nodes.dmp
@@ -34,14 +33,16 @@ metaviral=0						# SPAdes virus assembly
 complete_genes=0				# should only complete genes (Prodigal) be used for analysis?
 cluster_method=usearch 			# Clustering algorythm. can be "usearch" or "cdhit"
 bac_only=0						# Only use bacterial datasets for in silico rRNA depletion
-no_cazy=0						# Skip cazyme calssification
-no_uniref90=0					# Skip uniref calssification
-no_kegg=0						# Skip splitting of aa data for GhostKOALA
-no_cluster=0					# dereplicated sequences will not be clustered, if set to 1: id will be ignored
+cazy=0							# Skip cazyme calssification
+uniref90=0						# Skip uniref calssification
+kegg=0							# Skip splitting of aa data for GhostKOALA
+kegg_profile=prokaryote			# hmm profile for KEGG classification
+cluster=0						# dereplicated sequences will not be clustered, if set to 1: id will be ignored
 id=95							# identity threshold for clustering
-no_tax=0						# Skip taxonomic calssification using kaiju and RefSeq/ProGenomes databases
+tax=0							# Skip taxonomic calssification using kaiju and RefSeq/ProGenomes databases
 prot_id=70						# Identity threshold for diamond protein similatity searches (uniref90 and cazyme)
-
+fasta=0
+se=0
 threads=16						# threads used for computation
 mem=120							# memory for SPAdes assembly in GB
 minR=100						# minimal read length in quality control of raw illumina reads
@@ -103,20 +104,29 @@ while : ; do
 		cluster_method=$1
 		shift
 		;;
-	-no_cluster)
-		no_cluster=1
+	-cluster)
+		cluster=1
 		shift
 		;;
-	-no_tax)
-		no_tax=1
+	-tax)
+		tax=1
 		shift
 		;;
-	-no_kegg)
-		no_kegg=1
+	-kegg)
+		kegg=1
 		shift
 		;;
-	-no_uniref90)
-		no_uniref90=1
+
+	-uniref90)
+		uniref90=1
+		shift
+		;;
+	-fasta)
+		fasta=1
+		shift
+		;;
+	-se)
+		se=1
 		shift
 		;;
 	-minlen)
@@ -139,8 +149,13 @@ while : ; do
 		eval=$1
 		shift
 		;;
+	-kegg_profile)
+		shift
+		kegg_profile=$1
+		shift
+		;;
 	-complete_genes)
-		complete_genes=S1
+		complete_genes=1
 		shift
 		;;
 	-mincov)
@@ -203,11 +218,12 @@ while : ; do
 		echo "-id             [INT] [cluster_genes] Threshold for nucleotide identity (%) clustering.  Ignored if –no_cluster 1. default: 95"
 		echo "-no_cluster     [SWITCH] [cluster_genes] if set : do not cluster genes. default: off"
 		echo "-eval           [FLOAT] [classify] E-value threshold for classification default: 0.00001"
-		echo "-no_cazy        [SWITCH] [classify] if set: do not classify sequences using the CAZyme database. default: off"
-		echo "-no_kegg        [SWITCH] [classify] if set: do not split amino acid sequences in parts for GHOSTKoala classification. default: off"
-		echo "-no_uniref      [SWITCH] [classify] if set: do not classify sequences using the uniref90 database. default: off"
-		echo "-no_tax         [SWITCH] [classify] if set: do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: off"
+		echo "-cazy        	  [SWITCH] [classify] classify sequences using the CAZyme database. default: off"
+		echo "-kegg        	  [SWITCH] [classify] do not split amino acid sequences in parts for GHOSTKoala classification. default: off"
+		echo "-uniref      	  [SWITCH] [classify] do not classify sequences using the uniref90 database. default: off"
+		echo "-tax         	  [SWITCH] [classify] do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: off"
 		echo "-prot_id        [INT] [classify] minimal amino acid sequence identity to CAZyme and UniRef90 database. default: 70"
+		echo "-kegg_profile   [SWITCH] [classify] defines kofam hmm profile set. Can be prokaryote, eukaryote or complete (all available K numbers). default: prokaryote"
 		echo "-db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately."
 		echo ""
 		echo "For an extended pipeline description visit https://github.com/LeonDlugosch/MetaSeq-Toolkit"
@@ -249,7 +265,7 @@ if [[ "$oDir" == . ]]; then
 #	sleep 15s
 fi
 
-rename "s/[\"-]//g" $inDir/*.fastq* ### deletes "-" from strings, because they make problems
+#rename "s/[\"-]//g" $rDir/*.fastq* ### deletes "-" from strings, because they make problems
 if [[ "${inDir: -1}" == "/" ]]; then
 	rDir=${inDir::-1}
 fi
@@ -257,7 +273,24 @@ fi
 if [[ "${oDir: -1}" == "/" ]]; then
 	oDir=${oDir::-1}
 fi
+if [[ "${rDir: -1}" == "/" ]]; then
+	rDir=${rDir::-1}
+fi
 
+if [[ "${kegg_profile}" == "prokaryote" || "${kegg_profile}" == "eukaryote" || "${kegg_profile}" == "complete" ]]; then
+	if [[ "${kegg_profile}" == "prokaryote" ]]; then
+		hmm_profile=/bioinf/home/leon.dlugosch/Resources/kofam/kofam_prokaryote.hmm
+	fi
+	if [[ "${kegg_profile}" == "eukaryote" ]]; then
+		hmm_profile=/bioinf/home/leon.dlugosch/Resources/kofam/kofam_eukaryote.hmm
+	fi
+	if [[ "${kegg_profile}" == "complete" ]]; then
+		hmm_profile=/bioinf/home/leon.dlugosch/Resources/kofam/kofam_complete.hmm
+	fi
+else
+	echo "Invalid kegg profile. options: prokaryote, eukaryote or complete"
+	exit
+fi
 ###################################################################################################################################
 # MODE: qa														                                                           		  #
 ###################################################################################################################################
@@ -491,7 +524,7 @@ fi
 ###################################################################################################################################
 # MODE: predict_genes													                                                           		  #
 ###################################################################################################################################
-if [[ "$mode" == "predict_genes" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+if [[ "$mode" == "predict" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 	if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
 		rDir=$oDir/02_contigs
 	fi
@@ -499,20 +532,20 @@ if [[ "$mode" == "predict_genes" || "$mode" == "postassembly" || "$mode" == "com
 	mkdir -p $oDir/tmp/fna
 	mkdir -p $oDir/03_filtered_contigs
 
-	( cd $rDir && ls *.fasta ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/RemoveSmalls.txt
+	( cd $rDir && ls *.f* ) | awk 'BEGIN{FS=OFS="."}{NF--; print}' > $oDir/tmp/RemoveSmalls.txt
 	echo "Removing Contigs smaller than "$minlen"bp..."
 	for s in $(cat $oDir/tmp/RemoveSmalls.txt); do
 		echo ${s}"..."
-		perl $rm_smalls $minlen $rDir/${s}_contigs.fasta > $oDir/03_filtered_contigs/${s}_f.fasta
+		removesmalls.pl $minlen $rDir/${s}.f* > $oDir/03_filtered_contigs/${s}_fcontigs.fasta
 	done
 
 	 mkdir -p $oDir/04_genes/fna 	# Nucleotide sequences
 	 mkdir -p $oDir/04_genes/faa 	# Proteins sequneces
 
-	 ( cd $oDir/03_filtered_contigs && ls *.fasta ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/Prodigal_Files.txt
+	 ( cd $oDir/03_filtered_contigs && ls *.fasta ) | awk 'BEGIN{FS=OFS="."}{NF--; print}' > $oDir/tmp/Prodigal_Files.txt
 	 for s in $(cat $oDir/tmp/Prodigal_Files.txt); do
 	 	(FILE=$s
-	 		prodigal  -p meta -q -i $oDir/03_filtered_contigs/${FILE}_f.fasta -d $oDir/04_genes/fna/${FILE}_genes.fna -a $oDir/04_genes/faa/${s}_aas.faa
+	 		prodigal  -p meta -q -i $oDir/03_filtered_contigs/${FILE}.fasta -d $oDir/04_genes/fna/${FILE}_genes.fna -a $oDir/04_genes/faa/${s}_aas.faa
 	 		) &
 
 	 	if [[ $(jobs -r -p | wc -l) -gt $threads ]]; then
@@ -538,46 +571,59 @@ if [[ "$mode" == "predict_genes" || "$mode" == "postassembly" || "$mode" == "com
 	fi
 
 
-	 rm -rf $oDir/tmp/
+	 #rm -rf $oDir/tmp/
 	fi
 
 ###################################################################################################################################
-# MODE: filter_genes														                                               		  #
+# MODE: select														                                               		  #
 ###################################################################################################################################
-
-if [[ "$mode" == "filter_genes" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+if [[ "$mode" == "select" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
 		if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
 			rDir=$oDir/04_genes
 		fi
-	mkdir -p $oDir/tmp
-	rDir2=${rDir::-1}
-	faaDir=$rDir2/faa/
-	fnaDir=$rDir2/fna/
+		
+		faaDir=$rDir/faa/
+		fnaDir=$rDir/fna/
 
 	if [[ "${complete_genes}" == "1" ]]; then
 		mkdir $rDir/complete_fna
 		mkdir $rDir/complete_faa
 
-		( cd $fnaDir && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/filter_files.txt
+		( cd $fnaDir && find -type f -name '*.f*' ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | sed 's/^..//' > $oDir/tmp/filter_files.txt
 		for s in $(cat $oDir/tmp/filter_files.txt); do
-			cat $rDir/fna/${s}.fna | grep "partial=00" -A1 > $oDir/04_genes/complete_fna/${s}_complete.fna
-			cat $rDir/faa/${s}.faa | grep "partial=00" -A1 > $oDir/04_genes/complete_faa/${s}_complete.faa
+			echo "${s}..."
+			fasta_formatter -i $rDir/fna/${s}_genes.fna -w 0 | grep "partial=00" -A1 | awk '!/--/{print $0}' > $oDir/04_genes/complete_fna/${s}_genes_complete.fna
+			fasta_formatter -i $rDir/faa/${s}_aas.faa -w 0 | grep "partial=00" -A1 | awk '!/--/{print $0}' > $oDir/04_genes/complete_faa/${s}_aas_complete.faa
 		done
 		faaDir=$oDir/04_Genes/complete_faa
 		fnaDir=$oDir/04_Genes/complete_fna
 	fi
 
+fi
+###################################################################################################################################
+# MODE: filter_genes														                                               		  #
+###################################################################################################################################
+if [[ "$mode" == "filter" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+		if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
+			rDir=$oDir/04_genes
+		fi
+	mkdir -p $oDir/tmp
+	
 	if [[ "${complete_genes}" == 1 ]]; then
 		mkdir $oDir/04_genes/complete_fna_filtered
 		mkdir $oDir/04_genes/complete_faa_filtered
 		faaOut=$oDir/04_genes/complete_faa_filtered
 		fnaOut=$oDir/04_genes/complete_fna_filtered
+		faaDir=$rDir/complete_faa/
+		fnaDir=$rDir/complete_fna/
 	else
 		mkdir $oDir/04_genes/fna_filtered
 		mkdir $oDir/04_genes/faa_filtered
 		faaOut=$oDir/04_genes/faa_filtered
 		fnaOut=$oDir/04_genes/fna_filtered
-	fi
+		faaDir=$rDir/faa/
+		fnaDir=$rDir/fna/
+fi
 
 	export faaOut
 	export fnaOut
@@ -649,7 +695,7 @@ if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "com
 				rDir=$oDir/04_genes/fna_filtered
 			fi
 		fi
-
+	mkdir -p $oDir/tmp
 	echo "##########################################################"
 	echo "Combining gene files..."
 	echo "##########################################################"
@@ -659,7 +705,7 @@ if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "com
 	echo "##########################################################"
 	echo "Dereplicating genes..."
 	echo "##########################################################"
-	usearch -fastx_uniques $oDir/04_genes/all_genes_nuc.fna \
+	usearch64 -fastx_uniques $oDir/04_genes/all_genes_nuc.fna \
 	-sizeout \
 	-threads $threads \
 	-fastaout $oDir/04_genes/all_genes_nuc_derep.fna
@@ -667,14 +713,14 @@ if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "com
 	echo "##########################################################"
 	echo "Sorting genes..."
 	echo "##########################################################"
-	usearch -sortbysize $oDir/04_genes/all_genes_nuc_derep.fna \
+	usearch64 -sortbysize $oDir/04_genes/all_genes_nuc_derep.fna \
 	-fastaout $oDir/04_genes/all_genes_nuc_derep_s.fna \
 	-minsize 1
 
-	if [[ "$no_cluster" == "0" ]]; then
+	if [[ "$cluster" == "1" ]]; then
 		mkdir -p 05_nr/
 		if [[ "$cluster_method" == "usearch" ]]; then
-			usearch -cluster_fast $oDir/04_genes/all_genes_nuc_derep_s.fna \
+			usearch64 -cluster_fast $oDir/04_genes/all_genes_nuc_derep_s.fna \
 			-id 0.$id \
 			-centroids $oDir/05_nr/Genes_nr${id}.fna
 			gzip $oDir/04_genes/all_genes_nuc_derep_s.fna
@@ -690,10 +736,21 @@ if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "com
 		fi
 	fi
 
-	if [[ "$no_cluster" == "1" ]]; then
+	if [[ "$cluster" == "0" ]]; then
 		mkdir -p 05_nr/
 		mv $oDir/04_genes/all_genes_nuc_derep.fna 05_nr/
 	fi
+
+	if [[ "$cluster" == "0" ]]; then
+		db=$oDir/05_nr/all_genes_nuc_derep.fna
+	else
+		db=$oDir/05_nr/Genes_nr${id}.fna
+	fi
+
+	awk 'NR%2==0' $db | awk '{ print length($0); }' > $oDir/tmp/Gene_Length.txt
+	cat $db | grep ">" > $oDir/tmp/Gene_names.txt
+	paste -d "\t" $oDir/tmp/Gene_names.txt $oDir/tmp/Gene_Length.txt >> oDir/05_nr/Gene_Length.txt
+
 
 fi
 
@@ -709,37 +766,51 @@ if [[ "$mode" == "classify" || "$mode" == "postassembly" || "$mode" == "complete
 			fi
 
 		fi
-	mkdir $oDir/06_classification/Kaiju_taxonomy/RefSeq
-	mkdir $oDir/06_classification/Kaiju_taxonomy/ProGenomes
-	if [[ "$no_tax" == "0" ]]; then
+
+	if [[ "$tax" == "1" ]]; then
+		mkdir -p $oDir/06_classification/Kaiju_taxonomy/RefSeq
+		mkdir -p $oDir/06_classification/Kaiju_taxonomy/ProGenomes
+		
 		echo "Starting Kaiju: RefSeq NR"
-		kaiju -t $Kaiju_RefSeq_Nodes -f $Kaiju_RefSeq -z $threads -a greedy -e 5 -E $eval -i $rDir -o $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_Taxonomy.txt
+		kaiju -t $Kaiju_RefSeq_Nodes -f $Kaiju_RefSeq -z $threads -e 5 -E $eval -i $rDir -o $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_Taxonomy.txt
 		kaiju-addTaxonNames -t $Kaiju_RefSeq_Nodes -n $Kaiju_RefSeq_Names -i $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_Taxonomy.txt -o $oDir/06_classification/Kaiju_taxonomy/RefSeq/RefSeq_names.txt -r superkingdom,phylum,class,order,family,genus,species -u
 
 		echo "Starting Kaiju: ProGenomes"
-		kaiju -t $Kaiju_Progenomes_Nodes -f $Kaiju_Progenomes -z $threads -a greedy -e 5 -E $eval -i $rDir -o $oDir/06_classification/Kaiju_taxonomy/ProGenomes/ProGenomes_Taxonomy.txt
-		kaiju-addTaxonNames -t $Kaiju_Progenomes_Nodes -n $Kaiju_Progenomes_Names -i $oDir/06_classification/Kaiju_taxonomy/ProGenomes/ProGenomes_Taxonomy.txt -o $oDir/06_classification/Kaiju_taxonomy/ProGenomes/Progenomes_names.txt -r superkingdom,phylum,class,order,family,genus,species -u
+		kaiju 	-i $rDir \
+				-f /bioinf/home/leon.dlugosch/Resources/Kaiju_Progenomes_2021_03/progenomes/kaiju_db_progenomes.fmi \
+				-t /bioinf/home/leon.dlugosch/Resources/Kaiju_Progenomes_2021_03/nodes.dmp \
+				-o $oDir/06_classification/Kaiju_taxonomy/ProGenomes/ProGenomes_Taxonomy.txt \
+				-z $threads \
+				-e 5 \
+				-E $eval
+
+		kaiju-addTaxonNames -t /bioinf/home/leon.dlugosch/Resources/Kaiju_Progenomes_2021_03/nodes.dmp \
+							-n /bioinf/home/leon.dlugosch/Resources/Kaiju_Progenomes_2021_03/names.dmp \
+							-i $oDir/06_classification/Kaiju_taxonomy/ProGenomes/ProGenomes_Taxonomy.txt \
+							-o $oDir/06_classification/Kaiju_taxonomy/ProGenomes/Progenomes_names.txt \
+							-r superkingdom,phylum,class,order,family,genus,species \
+							-u
 	fi
 
-	if [[ "$no_kegg" == "0" || "$no_cazy" == "0" || "$no_uniref90" == "0" ]]; then
-		transeq -sequence $rDir -outseq $oDir/06_classification/Genes_aa.fna -frame 1
+	if [[ "$kegg" == "1" || "$cazy" == "1" || "$uniref90" == "1" ]]; then
+		transeq -sequence $rDir -outseq $oDir/06_classification/Genes_aa.faa -frame 1
 	fi
 
-	if [[ "$no_cazy" == "0" ]]; then
-		mkdir $oDir/06_classification/CAZy/
-		diamond blastp --more-sensitive -p $threads --id $prot_id -e $eval -k 1 -d /bioinf/home/leon.dlugosch/Resources/DiamondDB_CAZy/diamond_cazy_db.dmnd -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/CAZy/CAZy_IDs.txt
-	fi
-
-	if [[ "$no_uniref90" == "0" ]]; then
+	if [[ "$uniref90" == "1" ]]; then
 		mkdir $oDir/06_classification/uniref90/
 		diamond blastp --more-sensitive -p $threads --id $prot_id -e $eval -k 1 -d /bioinf/home/leon.dlugosch/Resources/UniRef/diamond_db/uniref90_2021_11.dmnd -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/uniref90/niref90_ids.txt
 	fi
 
-	if [[ "$no_kegg" == "0" ]]; then
-		mkdir $oDir/06_classification/ghostkoala_parts
-		perl /bioinf/home/leon.dlugosch/Resources/FastaSplitter/fasta-splitter.pl $oDir/06_classification/Genes_aa.fna --part-size 300000000 --line-length 0 --out-dir $oDir/06_classification/ghostkoala_parts
-		gzip $oDir/06_classification/GhostKOALA_parts/*
+	if [[ "$kegg" == "1" ]]; then
+		mkdir -p $oDir/06_classification/kofam
+		hmmsearch --cpu $threads -E 0.00001 --max --tblout 06_classification/kofam/kofam.txt ${hmm_profile} $oDir/06_classification/Genes_aa.faa
 	fi
+	
+	if [[ "$cazy" == "1" ]]; then
+		mkdir -p $oDir/06_classification/cazy
+		diamond blastp --more-sensitive -p $threads --id $prot_id -e $eval -k 1 -d /bioinf/home/leon.dlugosch/Resources/DiamondDB_CAZy/ -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/uniref90/CAZY_ids.txt
+	fi
+
 fi
 
 ###################################################################################################################################
@@ -756,41 +827,74 @@ if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" || 
 	fi
 
 	mkdir -p $oDir/tmp/bam
+	mkdir -p $oDir/tmp/sam
+	mkdir -p $oDir/tmp/map
 	mkdir -p $oDir/tmp/db
 	mkdir -p $oDir/07_map
 
+	bowtie2-build ${db} $oDir/tmp/db/Bowtie2.d
+	DB=$oDir/tmp/db/Bowtie2.d
 
-	bowtie2-build ${db} $oDir/tmp/db/Bowtie2.db
-	DB=$oDir/tmp/db/Bowtie2.db
-
-	( cd $rDir && ls *.fastq ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/files.txt
+	if [[ "$se" == "0" ]]; then
+		( cd $rDir && ls *.fast* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq -d > $oDir/tmp/files.txt
+	fi
+	if [[ "$se" == "1" ]]; then
+		( cd $rDir && ls *.fast* ) | awk 'BEGIN{FS=OFS="."}{NF--; print}' > $oDir/tmp/files.txt
+	fi
 	for s in $(cat $oDir/tmp/files.txt); do
-		bowtie2 --very-sensitive-local \
-		-x $DB \
-		-1 $rDir/${s}_R1.fastq \
-		-2 $rDir/${s}_R2.fastq \
-		-p $threads \
-		-S $oDir/tmp/sam/${s}.sam
-
-		samtools view -b -S $oDir/tmp/sam/${s}.sam -@ $threads > $oDir/tmp/bam/${s}.bam
-		rm $oDir/tmp/sam/${s}.sam
-
-		samtools sort $oDir/tmp/bam/${s}.bam -@ $threads > $oDir/tmp/bam/${s}.sorted.bam
-		rm $oDir/tmp/bam/${s}.bam
-
-		samtools index $oDir/tmp/bam/${s}.sorted.bam -@ $threads
-		samtools idxstats $oDir/tmp/bam/${s}.sorted.bam > $oDir/tmp/map/${s}_mapped.txt
-
-		if (( $(stat -c%s "$oDir/tmp/map/${s}_mapped.txt") > 0 )); then
-    	mv $oDir/tmp/map/${s}_mapped.txt  mkdir -p $oDir/07_map/${s}_mapped.txt
+		echo "Mapping reads of $s"
+		
+	if [[ "$se" == "0" && "$fasta" == "0" ]]; then
+		echo "PE | FASTQ"
+			bowtie2 --very-sensitive-local \
+			-x $DB \
+			-1 $rDir/${s}_R1.fast* \
+			-2 $rDir/${s}_R2.fast* \
+			-p $threads \
+			-S $oDir/tmp/sam/${s}.sam
 		fi
+	if [[ "$se" == "1"  && "$fasta" == "0" ]]; then
+		echo "SE | FASTQ"
+			bowtie2 --very-sensitive-local \
+			-x $DB \
+			-U $rDir/${s}.fast* \
+			-p $threads \
+			-S $oDir/tmp/sam/${s}.sam
+	fi
+	if [[ "$se" == "0" && "$fasta" == "1" ]]; then
+		echo "SE | FASTA"
+			bowtie2 --very-sensitive-local \
+			-x $DB \
+			-1 $rDir/${s}_R1.fast* \
+			-2 $rDir/${s}_R2.fast* \
+			-p $threads \
+			-S $oDir/tmp/sam/${s}.sam \
+			-f
+		fi
+	if [[ "$se" == "1"  && "$fasta" == "1" ]]; then
+		echo "SE | FASTA"
+			bowtie2 --very-sensitive-local \
+			-x $DB \
+			-U $rDir/${s}.fast* \
+			-p $threads \
+			-S $oDir/tmp/sam/${s}.sam \
+			-f
+	fi
 
-		rm $oDir/tmp/bam/*.bam
-		rm $oDir/tmp/bam/*.bai
+			samtools view --threads $threads -b -S $oDir/tmp/sam/${s}.sam | samtools sort --threads $threads > $oDir/tmp/bam/${s}.sorted.bam 
+			samtools index $oDir/tmp/bam/${s}.sorted.bam -@ threads
+			samtools idxstats $oDir/tmp/bam/${s}.sorted.bam -@ threads > $oDir/07_map/${s}_mapped.txt
 
-	done
+			# rm $oDir/tmp/sam/${s}.sam
+			# samtools sort --threads $threads $oDir/tmp/bam/${s}.bam > $oDir/tmp/bam/${s}.sorted.bam 
+			# rm $oDir/tmp/bam/${s}.bam
+			# samtools index  -@ $threads
 
-	rm -rf $oDir/tmp/
+			#rm $oDir/tmp/bam/*.bam
+			#rm $oDir/tmp/bam/*.bai
+		done
+
+	#rm -rf $oDir/tmp/
 fi
 
 
@@ -842,7 +946,7 @@ if [[ "$mode" == "bin" ]]; then
 
 	( cd $rDir && ls *.f* ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | uniq > $oDir/tmp/read_files.txt
 	for s in $(cat $oDir/tmp/read_files.txt ); do
-		bbmap.sh in1=$rDir/${s}_R1.fastq in2=$rDir/${s}_R2.fastq ref=$cDir/${s}_contigs.fasta out=$oDir/tmp/mapped.sam nodisk threads=${threads}
+		/opt/BBmap/38.96/bbmap.sh in1=$rDir/${s}_R1.fastq in2=$rDir/${s}_R2.fastq ref=$cDir/${s}_contigs.fasta out=$oDir/tmp/mapped.sam nodisk threads=${threads}
 		samtools view -S -b $oDir/tmp/mapped.sam > $oDir/tmp/mapped.bam
 		rm $oDir/tmp/mapped.sam
 		samtools sort $oDir/tmp/mapped.bam -o $oDir/tmp/mapped_sorted.bam
@@ -857,7 +961,7 @@ if [[ "$mode" == "bin" ]]; then
 	( cd $cDir && ls *.fasta ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' > $oDir/tmp/metabat2_files.txt
 	for s in $(cat $oDir/tmp/metabat2_files.txt); do
 		mkdir -p $oDir/11_bins/${s}/
-		$metabat2 -i $cDir/${s}_contigs.fasta -a $oDir/10_contig_depth/${s}_depth.txt -o $oDir/11_bins/${s}/${s}_bin -m 1500
+		metabat2 -i $cDir/${s}_contigs.fasta -a $oDir/10_contig_depth/${s}_depth.txt -o $oDir/11_bins/${s}/${s}_bin -m 1500
 		mv $oDir/11_bins/${s}/* $oDir/11_bins/all_bins/
 		rm -rf $oDir/11_bins/${s}/
 	done
@@ -877,9 +981,9 @@ if [[ "$mode" == "bin" ]]; then
 	mkdir -p $oDir/12_bins_stats/ssu/tab
 	wget https://github.com/biocore/qiime-default-reference/raw/master/qiime_default_reference/gg_13_8_otus/rep_set/97_otus.fasta.gz
 	gzip -d 97_otus.fasta.gz
-	$usearch -makeudb_usearch 97_otus.fasta -wordlength 13 -output gg97.udb
+	usearch64 -makeudb_usearch 97_otus.fasta -wordlength 13 -output gg97.udb
 	rm 97_otus.fasta
-	$usearch -udb2bitvec gg97.udb -output $oDir/tmp/gg97.bitvec
+	usearch64 -udb2bitvec gg97.udb -output $oDir/tmp/gg97.bitvec
 	rm gg97.udb
 	( cd $oDir/11_bins/ && ls *.fa ) > $oDir/tmp/bin_list.txt
 	for s in $(cat $oDir/tmp/bin_list.txt); do
@@ -899,8 +1003,8 @@ if [[ "$mode" == "bin" ]]; then
 
 	echo -e "bin\tContigs\tA\tT\tG\tC\tTotal_length" > $oDir/12_bins_stats/bin_sequence_Stats.txt
 	paste -d "\t" $oDir/tmp/bin_list.txt $oDir/tmp/Totalseqs.txt  $oDir/tmp/ATCG_Counts.txt $oDir/tmp/total_length.txt >> $oDir/12_bins_stats/bin_sequence_Stats.txt
-	rm -rf $oDir/tmp
-	rm -rf $oDir/10_contig_depth
+	#rm -rf $oDir/tmp
+	#rm -rf $oDir/10_contig_depth
 fi
 
 
