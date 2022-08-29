@@ -92,6 +92,12 @@ The pipeline or rather certain modules (assembly, cluster_genes, classify, map) 
 ```
 tmux
 ```
+To set up the environment and load all required dependencies start with 
+```
+module load metaseq
+```
+and you are good to go! :) 
+
 ### Module usage examples
 #### complete
 This executes modules QC, assembly, predict_genes, filter_genes, cluster_genes, classification and map in sequence and is probably the easiest way to get results quick. For detailed module descriptions see below. 
