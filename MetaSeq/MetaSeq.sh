@@ -99,13 +99,9 @@ while : ; do
 		metaviral=1
 		shift
 		;;
-	-cluster_method)
-		shift
-		cluster_method=$1
-		shift
-		;;
 	-cluster)
-		cluster=1
+		shift
+		cluster=$1
 		shift
 		;;
 	-tax)
@@ -113,7 +109,7 @@ while : ; do
 		shift
 		;;
 	-kegg)
-		kegg=1
+		kegg=$1
 		shift
 		;;
 
@@ -147,11 +143,6 @@ while : ; do
 	-eval)
 		shift
 		eval=$1
-		shift
-		;;
-	-kegg_profile)
-		shift
-		kegg_profile=$1
 		shift
 		;;
 	-complete_genes)
@@ -215,18 +206,17 @@ while : ; do
 		echo "-minlen         [INT] [filter_genes] Minimal length of genes in potential amino acid sequence. default: 210 (=70 amino acids)"
 		echo "-mincov         [INT] [filter_genes] Minimal coverage for genes to be kept. default: 3"
 		echo "-cluster_method [usearch/cdhit] [cluster_genes] Cluster method used for clustering of nucleotide sequences. default: usearch"
-		echo "-id             [INT] [cluster_genes] Threshold for nucleotide identity (%) clustering.  Ignored if –no_cluster 1. default: 95"
-		echo "-no_cluster     [SWITCH] [cluster_genes] if set : do not cluster genes. default: off"
+		echo "-id             [INT] [cluster_genes] Threshold for nucleotide identity (%) clustering. default: 95"
+		echo "-cluster    	  [SWITCH & OPTION] [cluster_genes] Gene Sequences will be clustered isung -id as identity threshold. Set to 'cluster_fast' or 'cdhit'. default: off"
 		echo "-eval           [FLOAT] [classify] E-value threshold for classification default: 0.00001"
 		echo "-cazy        	  [SWITCH] [classify] classify sequences using the CAZyme database. default: off"
-		echo "-kegg        	  [SWITCH] [classify] do not split amino acid sequences in parts for GHOSTKoala classification. default: off"
+		echo "-kegg           [SWITCH & OPTION] [classify] Classify seqeunces using kofam-scan (KEGG orthologues). Set to 'prokaryote', 'eukaryote' or 'complete' for respective hmm profiles. default: off"
 		echo "-uniref      	  [SWITCH] [classify] do not classify sequences using the uniref90 database. default: off"
 		echo "-tax         	  [SWITCH] [classify] do not classify sequences taxonomically using kaiju and RefSeq/ProGenomes databases. default: off"
 		echo "-prot_id        [INT] [classify] minimal amino acid sequence identity to CAZyme and UniRef90 database. default: 70"
-		echo "-kegg_profile   [SWITCH] [classify] defines kofam hmm profile set. Can be prokaryote, eukaryote or complete (all available K numbers). default: prokaryote"
 		echo "-db             [PATH] [map] Nucleotide sequence file for mapping of reads. Only required if module is run separately."
 		echo ""
-		echo "For an extended pipeline description visit https://github.com/LeonDlugosch/MetaSeq-Toolkit"
+		echo "For an extended manual visit https://github.com/LeonDlugosch/MetaSeq-Toolkit"
 		exit
 		;;
 	*)  if [ -z "$1" ]; then break; fi
@@ -277,14 +267,14 @@ if [[ "${rDir: -1}" == "/" ]]; then
 	rDir=${rDir::-1}
 fi
 
-if [[ "${kegg_profile}" == "prokaryote" || "${kegg_profile}" == "eukaryote" || "${kegg_profile}" == "complete" ]]; then
-	if [[ "${kegg_profile}" == "prokaryote" ]]; then
+if [[ "${kegg}" == "prokaryote" || "${kegg}" == "eukaryote" || "${kegg}" == "complete" ]]; then
+	if [[ "${kegg}" == "prokaryote" ]]; then
 		hmm_profile=/bioinf/home/leon.dlugosch/Resources/kofam/kofam_prokaryote.hmm
 	fi
-	if [[ "${kegg_profile}" == "eukaryote" ]]; then
+	if [[ "${kegg}" == "eukaryote" ]]; then
 		hmm_profile=/bioinf/home/leon.dlugosch/Resources/kofam/kofam_eukaryote.hmm
 	fi
-	if [[ "${kegg_profile}" == "complete" ]]; then
+	if [[ "${kegg}" == "complete" ]]; then
 		hmm_profile=/bioinf/home/leon.dlugosch/Resources/kofam/kofam_complete.hmm
 	fi
 else
@@ -319,8 +309,8 @@ if [[ "$mode" == "qc" || "$mode" == "complete" || "$mode" == "transcriptome" ]];
 		java -jar $trimmo PE \
 		-phred33 \
 		-threads $threads \
-		$rDir/${s}_*R1*.fastq* \
-		$rDir/${s}_*R2*.fastq* \
+		$rDir/${s}_*1*.fastq* \
+		$rDir/${s}_*2*.fastq* \
 		$oDir/01_QC/Paired/${s}_R1.fastq \
 		$oDir/01_QC/Unpaired/${s}_SE_R1.fastq \
 		$oDir/01_QC/Paired/${s}_R2.fastq \
@@ -423,8 +413,8 @@ if [[ "$bac_only" == "0" ]]; then
             	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/5s/rfam-5s-database-id98.fasta \
             	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/arc/silva-arc-16s-id95.fasta \
             	--ref /bioinf/home/leon.dlugosch/Resources/SortMeRNA_DBs/arc/silva-arc-23s-id98.fasta \
-            	--reads $rDir/${s}_R1.fastq* \
-            	--reads $rDir/${s}_R2.fastq* \
+            	--reads $rDir/${s}_*1.fastq* \
+            	--reads $rDir/${s}_*2.fastq* \
             	--workdir $oDir/tmp/SortmeRNA/ \
             	--other $oDir/tmp/SortmeRNA/ \
             	--threads 1:1:$threads \
@@ -475,8 +465,8 @@ fi
 			mkdir -p $oDir/tmp/SPAdes
 		fi
 
-		spades.py -1 $rDir/${s}_R1.fastq \
-		-2 $rDir/${s}_R2.fastq \
+		spades.py -1 $rDir/${s}_*1.fastq \
+		-2 $rDir/${s}_*2.fastq \
 		--meta \
 		--memory $mem \
 		-k $k \
@@ -577,27 +567,23 @@ if [[ "$mode" == "predict" || "$mode" == "postassembly" || "$mode" == "complete"
 ###################################################################################################################################
 # MODE: select														                                               		  #
 ###################################################################################################################################
-if [[ "$mode" == "select" || "$mode" == "postassembly" || "$mode" == "complete" ]]; then
+if [[ "$mode" == "select" || "$mode" == "postassembly" || "$mode" == "complete" ||  "${complete_genes}" == "1" ]]; then
 		if [[ "$mode" == "complete"  || "$mode" == "postassembly" ]]; then
 			rDir=$oDir/04_genes
 		fi
 		
-		faaDir=$rDir/faa/
-		fnaDir=$rDir/fna/
-
-	if [[ "${complete_genes}" == "1" ]]; then
-		mkdir $rDir/complete_fna
-		mkdir $rDir/complete_faa
-
-		( cd $fnaDir && find -type f -name '*.f*' ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | sed 's/^..//' > $oDir/tmp/filter_files.txt
-		for s in $(cat $oDir/tmp/filter_files.txt); do
-			echo "${s}..."
-			fasta_formatter -i $rDir/fna/${s}_genes.fna -w 0 | grep "partial=00" -A1 | awk '!/--/{print $0}' > $oDir/04_genes/complete_fna/${s}_genes_complete.fna
-			fasta_formatter -i $rDir/faa/${s}_aas.faa -w 0 | grep "partial=00" -A1 | awk '!/--/{print $0}' > $oDir/04_genes/complete_faa/${s}_aas_complete.faa
-		done
-		faaDir=$oDir/04_Genes/complete_faa
-		fnaDir=$oDir/04_Genes/complete_fna
-	fi
+	faaDir=$rDir/faa/
+	fnaDir=$rDir/fna/
+	mkdir $rDir/complete_fna
+	mkdir $rDir/complete_faa
+	( cd $fnaDir && find -type f -name '*.f*' ) | awk 'BEGIN{FS=OFS="_"}{NF--; print}' | sed 's/^..//' > $oDir/tmp/filter_files.txt
+	for s in $(cat $oDir/tmp/filter_files.txt); do
+		echo "${s}..."
+		fasta_formatter -i $rDir/fna/${s}_genes.fna -w 0 | grep "partial=00" -A1 | awk '!/--/{print $0}' > $oDir/04_genes/complete_fna/${s}_genes_complete.fna
+		fasta_formatter -i $rDir/faa/${s}_aas.faa -w 0 | grep "partial=00" -A1 | awk '!/--/{print $0}' > $oDir/04_genes/complete_faa/${s}_aas_complete.faa
+	done
+	faaDir=$oDir/04_Genes/complete_faa
+	fnaDir=$oDir/04_Genes/complete_fna
 
 fi
 ###################################################################################################################################
@@ -609,7 +595,7 @@ if [[ "$mode" == "filter" || "$mode" == "postassembly" || "$mode" == "complete" 
 		fi
 	mkdir -p $oDir/tmp
 	
-	if [[ "${complete_genes}" == 1 ]]; then
+	if [[ "${complete_genes}" == "1" ]]; then
 		mkdir $oDir/04_genes/complete_fna_filtered
 		mkdir $oDir/04_genes/complete_faa_filtered
 		faaOut=$oDir/04_genes/complete_faa_filtered
@@ -717,16 +703,16 @@ if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "com
 	-fastaout $oDir/04_genes/all_genes_nuc_derep_s.fna \
 	-minsize 1
 
-	if [[ "$cluster" == "1" ]]; then
+	if [[ "$cluster" != "0" ]]; then
 		mkdir -p 05_nr/
-		if [[ "$cluster_method" == "usearch" ]]; then
+		if [[ "$cluster" == "cluster_fast" ]]; then
 			usearch64 -cluster_fast $oDir/04_genes/all_genes_nuc_derep_s.fna \
 			-id 0.$id \
 			-centroids $oDir/05_nr/Genes_nr${id}.fna
 			gzip $oDir/04_genes/all_genes_nuc_derep_s.fna
 		fi
 
-		if [[ "$cluster_method" == "cdhit" ]]; then
+		if [[ "$cluster" == "cdhit" ]]; then
 			cdhit -i $oDir/05_genes/all_genes_nuc_derep_s.fna \
 			-o $oDir/05_nr/Genes_nr${id}.fna \
 			-c 0.$id \
@@ -750,8 +736,6 @@ if [[ "$mode" == "cluster_genes" || "$mode" == "postassembly" || "$mode" == "com
 	awk 'NR%2==0' $db | awk '{ print length($0); }' > $oDir/tmp/Gene_Length.txt
 	cat $db | grep ">" > $oDir/tmp/Gene_names.txt
 	paste -d "\t" $oDir/tmp/Gene_names.txt $oDir/tmp/Gene_Length.txt >> oDir/05_nr/Gene_Length.txt
-
-
 fi
 
 ###################################################################################################################################
@@ -801,7 +785,7 @@ if [[ "$mode" == "classify" || "$mode" == "postassembly" || "$mode" == "complete
 		diamond blastp --more-sensitive -p $threads --id $prot_id -e $eval -k 1 -d /bioinf/home/leon.dlugosch/Resources/UniRef/diamond_db/uniref90_2021_11.dmnd -q $oDir/06_classification/Genes_aa.fna -o $oDir/06_classification/uniref90/niref90_ids.txt
 	fi
 
-	if [[ "$kegg" == "1" ]]; then
+	if [[ "$kegg" != "0" ]]; then
 		mkdir -p $oDir/06_classification/kofam
 		hmmsearch --cpu $threads -E 0.00001 --max --tblout 06_classification/kofam/kofam.txt ${hmm_profile} $oDir/06_classification/Genes_aa.faa
 	fi
@@ -848,8 +832,8 @@ if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" || 
 		echo "PE | FASTQ"
 			bowtie2 --very-sensitive-local \
 			-x $DB \
-			-1 $rDir/${s}_R1.fast* \
-			-2 $rDir/${s}_R2.fast* \
+			-1 $rDir/${s}_*1.fast* \
+			-2 $rDir/${s}_*2.fast* \
 			-p $threads \
 			-S $oDir/tmp/sam/${s}.sam
 		fi
@@ -865,8 +849,8 @@ if [[ "$mode" == "map" || "$mode" == "postassembly" || "$mode" == "complete" || 
 		echo "SE | FASTA"
 			bowtie2 --very-sensitive-local \
 			-x $DB \
-			-1 $rDir/${s}_R1.fast* \
-			-2 $rDir/${s}_R2.fast* \
+			-1 $rDir/${s}_*1.fast* \
+			-2 $rDir/${s}_*2.fast* \
 			-p $threads \
 			-S $oDir/tmp/sam/${s}.sam \
 			-f
